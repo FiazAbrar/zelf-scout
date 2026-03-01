@@ -1,5 +1,6 @@
 import logging
 import re
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 from math import log2
 
@@ -34,6 +35,8 @@ _YDL_FLAT = {
     "no_warnings": True,
     "extract_flat": True,
     "skip_download": True,
+    # playlistend caps results when using a search URL instead of ytsearch prefix
+    "playlistend": YOUTUBE_MAX_VIDEOS_PER_BRAND,
 }
 _YDL_FULL = {
     "quiet": True,
@@ -99,9 +102,14 @@ class YouTubeCollector:
         cutoff = datetime.now(timezone.utc) - timedelta(days=YOUTUBE_LOOKBACK_DAYS)
 
         # ------------------------------------------------------------------ #
-        # Step 1: Flat search — fast, returns view counts + titles + channels #
+        # Step 1: Flat search — sorted by upload date (most recent first)    #
+        # sp=CAI%3D is YouTube's sort-by-date search parameter               #
         # ------------------------------------------------------------------ #
-        query = f"ytsearch{YOUTUBE_MAX_VIDEOS_PER_BRAND}:{brand_name}"
+        query = (
+            "https://www.youtube.com/results?search_query="
+            + urllib.parse.quote(brand_name)
+            + "&sp=CAI%3D"
+        )
         with yt_dlp.YoutubeDL(_YDL_FLAT) as ydl:
             result = ydl.extract_info(query, download=False)
 

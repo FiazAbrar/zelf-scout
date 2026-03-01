@@ -842,8 +842,9 @@ with tab_about:
 
 <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How we collect data</h2>
 <p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The query is literally <code style="background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:13px">ytsearch50:[brand name]</code>.</p>
-<p>YouTube returns up to 50 results sorted by its own <strong>relevance algorithm</strong>, not by recency or view count. We then filter those 50 for: videos older than 90 days, and videos from the brand's own channel. What remains is our dataset for that brand.</p>
-<p>This means for a popular brand like Erewhon or L'Oreal Paris — which likely have hundreds of creator videos in any 90-day window — we are seeing a narrow, algorithmically-selected slice. We have no way of knowing what is outside that slice. For smaller brands with little creator coverage, 50 results may be close to the full picture. For larger brands it is not.</p>
+<p>YouTube returns up to 50 results sorted by <strong>upload date, most recent first</strong>. We then filter those for: videos older than 90 days, and videos from the brand's own channel. What remains is our dataset for that brand.</p>
+<p>Sorting by recency means we are measuring what is happening now, which is the right framing for a sales tool — you want to call a brand when creators are actively posting about them, not when an old video happened to go viral. The trade-off is that a high-performing video from 60 days ago ranks below a low-performing video from yesterday. We accept that trade-off.</p>
+<p>For a popular brand like Erewhon or L'Oreal Paris, 50 recent results is still a narrow slice — there are almost certainly more creator videos in any 90-day window than we are seeing. For smaller brands it may be close to the full picture.</p>
 <p>For the <strong>top 5 videos by view count</strong> in that set, we make a second request to get like and comment counts. Everything else is derived from the flat search alone.</p>
 <p>That is the entirety of our data collection.</p>
 
