@@ -842,8 +842,9 @@ with tab_about:
 
 <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How we collect data</h2>
 <p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The query is literally <code style="background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:13px">ytsearch50:[brand name]</code>.</p>
-<p>We take the first <strong>50 results</strong> published within the last <strong>90 days</strong>. We exclude any video uploaded by the brand's own channel (matched by channel name).</p>
-<p>For the <strong>top 5 videos by view count</strong> we make a second request to get like and comment counts.</p>
+<p>YouTube returns up to 50 results sorted by its own <strong>relevance algorithm</strong>, not by recency or view count. We then filter those 50 for: videos older than 90 days, and videos from the brand's own channel. What remains is our dataset for that brand.</p>
+<p>This means for a popular brand like Erewhon or L'Oreal Paris — which likely have hundreds of creator videos in any 90-day window — we are seeing a narrow, algorithmically-selected slice. We have no way of knowing what is outside that slice. For smaller brands with little creator coverage, 50 results may be close to the full picture. For larger brands it is not.</p>
+<p>For the <strong>top 5 videos by view count</strong> in that set, we make a second request to get like and comment counts. Everything else is derived from the flat search alone.</p>
 <p>That is the entirety of our data collection.</p>
 
 <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
