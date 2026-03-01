@@ -24,6 +24,15 @@ def _now() -> str:
 
 def init_db(db_path: Path = None):
     conn = get_connection(db_path)
+
+    # Migrate brand_scores schema if old columns exist
+    try:
+        conn.execute("SELECT creator_reach_score FROM brand_scores LIMIT 1")
+    except Exception:
+        # Old schema (or no table) — drop and recreate
+        conn.execute("DROP TABLE IF EXISTS brand_scores")
+        conn.commit()
+
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS brand_metrics (
             brand_name TEXT NOT NULL,
@@ -38,15 +47,19 @@ def init_db(db_path: Path = None):
             brand_name TEXT PRIMARY KEY,
             category TEXT NOT NULL,
             icp_score REAL NOT NULL,
-            video_volume_score REAL NOT NULL,
-            engagement_scale_score REAL NOT NULL,
-            engagement_rate_score REAL NOT NULL,
+            creator_reach_score REAL NOT NULL,
+            creator_ecosystem_score REAL NOT NULL,
+            content_intent_score REAL NOT NULL,
             category_fit_score REAL NOT NULL,
             platforms_active INTEGER NOT NULL,
             total_videos INTEGER NOT NULL,
             total_views INTEGER NOT NULL,
             total_likes INTEGER NOT NULL,
             total_comments INTEGER NOT NULL,
+            unique_creators INTEGER NOT NULL DEFAULT 0,
+            breakout_ratio REAL NOT NULL DEFAULT 0.0,
+            review_intent_ratio REAL NOT NULL DEFAULT 0.0,
+            purchase_intent_score REAL NOT NULL DEFAULT 0.0,
             scored_at TEXT NOT NULL
         );
 
@@ -121,32 +134,40 @@ def upsert_scores(scores: list[dict], db_path: Path = None):
         conn.execute("""
             INSERT INTO brand_scores (
                 brand_name, category, icp_score,
-                video_volume_score, engagement_scale_score,
-                engagement_rate_score,
-                category_fit_score, platforms_active,
-                total_videos, total_views, total_likes, total_comments,
+                creator_reach_score, creator_ecosystem_score,
+                content_intent_score, category_fit_score,
+                platforms_active, total_videos, total_views,
+                total_likes, total_comments,
+                unique_creators, breakout_ratio,
+                review_intent_ratio, purchase_intent_score,
                 scored_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(brand_name) DO UPDATE SET
                 category = excluded.category,
                 icp_score = excluded.icp_score,
-                video_volume_score = excluded.video_volume_score,
-                engagement_scale_score = excluded.engagement_scale_score,
-                engagement_rate_score = excluded.engagement_rate_score,
+                creator_reach_score = excluded.creator_reach_score,
+                creator_ecosystem_score = excluded.creator_ecosystem_score,
+                content_intent_score = excluded.content_intent_score,
                 category_fit_score = excluded.category_fit_score,
                 platforms_active = excluded.platforms_active,
                 total_videos = excluded.total_videos,
                 total_views = excluded.total_views,
                 total_likes = excluded.total_likes,
                 total_comments = excluded.total_comments,
+                unique_creators = excluded.unique_creators,
+                breakout_ratio = excluded.breakout_ratio,
+                review_intent_ratio = excluded.review_intent_ratio,
+                purchase_intent_score = excluded.purchase_intent_score,
                 scored_at = excluded.scored_at
         """, (
             s["brand_name"], s["category"], s["icp_score"],
-            s["video_volume_score"], s["engagement_scale_score"],
-            s["engagement_rate_score"],
-            s["category_fit_score"], s["platforms_active"],
-            s["total_videos"], s["total_views"], s["total_likes"],
-            s["total_comments"], now,
+            s["creator_reach_score"], s["creator_ecosystem_score"],
+            s["content_intent_score"], s["category_fit_score"],
+            s["platforms_active"], s["total_videos"], s["total_views"],
+            s["total_likes"], s["total_comments"],
+            s["unique_creators"], s["breakout_ratio"],
+            s["review_intent_ratio"], s["purchase_intent_score"],
+            now,
         ))
     conn.commit()
     conn.close()

@@ -126,15 +126,19 @@ def score_all_brands() -> pd.DataFrame:
                 "brand_name": r["brand_name"],
                 "category": r["category"],
                 "icp_score": r["icp_score"],
-                "video_volume_score": r["video_volume_score"],
-                "engagement_scale_score": r["engagement_scale_score"],
-                "engagement_rate_score": r["engagement_rate_score"],
+                "creator_reach_score": r["creator_reach_score"],
+                "creator_ecosystem_score": r["creator_ecosystem_score"],
+                "content_intent_score": r["content_intent_score"],
                 "category_fit_score": r["category_fit_score"],
                 "platforms_active": r["platforms_active"],
                 "total_videos": r["total_videos"],
                 "total_views": r["total_views"],
                 "total_likes": r["total_likes"],
                 "total_comments": r["total_comments"],
+                "unique_creators": int(r["unique_creators"]),
+                "breakout_ratio": r["breakout_ratio"],
+                "review_intent_ratio": r["review_intent_ratio"],
+                "purchase_intent_score": r["purchase_intent_score"],
             })
         upsert_scores(score_records)
 
@@ -256,12 +260,12 @@ with tab_table:
             "Category": row["category"],
             "ICP Score": row["icp_score"],
             "Tier": tier,
-            "Volume": row["video_volume_score"],
-            "Engagement": row["engagement_scale_score"],
-            "Eng. Rate": row["engagement_rate_score"],
+            "Reach": row["creator_reach_score"],
+            "Ecosystem": row["creator_ecosystem_score"],
+            "Intent": row["content_intent_score"],
             "Category Fit": row["category_fit_score"],
+            "Creators": int(row["unique_creators"]),
             "Total Views": row["total_views"],
-            "Total Videos": int(row["total_videos"]),
         })
 
     display_df = pd.DataFrame(display_data)
@@ -281,9 +285,9 @@ with tab_table:
             color_tier, subset=["Tier"]
         ).format({
             "ICP Score": "{:.1f}",
-            "Volume": "{:.1f}",
-            "Engagement": "{:.1f}",
-            "Eng. Rate": "{:.1f}",
+            "Reach": "{:.1f}",
+            "Ecosystem": "{:.1f}",
+            "Intent": "{:.1f}",
             "Category Fit": "{:.1f}",
             "Total Views": lambda x: format_number(x),
         })
@@ -333,12 +337,12 @@ with tab_charts:
     with chart_tab3:
         st.subheader("Sub-Score Heatmap")
         heatmap_data = filtered_df.set_index("brand_name")[
-            ["video_volume_score", "engagement_scale_score",
-             "engagement_rate_score", "category_fit_score"]
+            ["creator_reach_score", "creator_ecosystem_score",
+             "content_intent_score", "category_fit_score"]
         ].rename(columns={
-            "video_volume_score": "Volume",
-            "engagement_scale_score": "Engagement",
-            "engagement_rate_score": "Eng. Rate",
+            "creator_reach_score": "Reach",
+            "creator_ecosystem_score": "Ecosystem",
+            "content_intent_score": "Intent",
             "category_fit_score": "Category Fit",
         })
         # Show top 20 for readability
@@ -404,17 +408,17 @@ with tab_detail:
 
         with col_radar:
             st.markdown("**Score Breakdown**")
-            dimensions = ["Volume", "Engagement", "Eng. Rate", "Category Fit"]
+            dimensions = ["Reach", "Ecosystem", "Intent", "Category Fit"]
             max_vals = [
-                SCORING_WEIGHTS["video_volume"],
-                SCORING_WEIGHTS["engagement_scale"],
-                SCORING_WEIGHTS["engagement_rate"],
+                SCORING_WEIGHTS["creator_reach"],
+                SCORING_WEIGHTS["creator_ecosystem"],
+                SCORING_WEIGHTS["content_intent"],
                 SCORING_WEIGHTS["category_fit"],
             ]
             values = [
-                brand_row["video_volume_score"],
-                brand_row["engagement_scale_score"],
-                brand_row["engagement_rate_score"],
+                brand_row["creator_reach_score"],
+                brand_row["creator_ecosystem_score"],
+                brand_row["content_intent_score"],
                 brand_row["category_fit_score"],
             ]
             # Normalize to 0-1 for radar
@@ -451,14 +455,14 @@ with tab_detail:
 
             st.markdown("**Sub-Scores**")
             sub_data = {
-                "Dimension": ["Video Volume", "Engagement Scale", "Engagement Rate", "Category Fit"],
+                "Dimension": ["Creator Reach", "Creator Ecosystem", "Content Intent", "Category Fit"],
                 "Score": [
-                    brand_row["video_volume_score"],
-                    brand_row["engagement_scale_score"],
-                    brand_row["engagement_rate_score"],
+                    brand_row["creator_reach_score"],
+                    brand_row["creator_ecosystem_score"],
+                    brand_row["content_intent_score"],
                     brand_row["category_fit_score"],
                 ],
-                "Max": [30, 30, 25, 15],
+                "Max": [30, 25, 25, 20],
             }
             sub_df = pd.DataFrame(sub_data)
             sub_df["% of Max"] = (sub_df["Score"] / sub_df["Max"] * 100).round(0).astype(int)
@@ -497,8 +501,7 @@ with tab_detail:
 # --- Footer ---
 st.divider()
 st.caption(
-    "Built to demonstrate how Zelf's ICP can be identified through creator video signals — "
-    "the data moat no other GTM tool captures. YouTube data = creator videos about each brand (last 90 days). | "
-    "Scoring: Video Volume (30pts) + Engagement Scale (30pts) + "
-    "Engagement Rate (25pts) + Category Fit (15pts)"
+    "Data: creator videos about each brand on YouTube (last 90 days) via yt-dlp — no API quota. "
+    "Scoring: Creator Reach (30pts) + Creator Ecosystem (25pts) + Content Intent (25pts) + Category Fit (20pts). "
+    "Intent gate: brands with zero review/purchase signals are capped at 60."
 )

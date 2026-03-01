@@ -59,15 +59,19 @@ def main():
                 "brand_name": r["brand_name"],
                 "category": r["category"],
                 "icp_score": r["icp_score"],
-                "video_volume_score": r["video_volume_score"],
-                "engagement_scale_score": r["engagement_scale_score"],
-                "engagement_rate_score": r["engagement_rate_score"],
+                "creator_reach_score": r["creator_reach_score"],
+                "creator_ecosystem_score": r["creator_ecosystem_score"],
+                "content_intent_score": r["content_intent_score"],
                 "category_fit_score": r["category_fit_score"],
                 "platforms_active": r["platforms_active"],
                 "total_videos": r["total_videos"],
                 "total_views": r["total_views"],
                 "total_likes": r["total_likes"],
                 "total_comments": r["total_comments"],
+                "unique_creators": int(r["unique_creators"]),
+                "breakout_ratio": r["breakout_ratio"],
+                "review_intent_ratio": r["review_intent_ratio"],
+                "purchase_intent_score": r["purchase_intent_score"],
             })
         upsert_scores(score_records)
 
