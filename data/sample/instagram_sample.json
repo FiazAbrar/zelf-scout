@@ -1,0 +1,502 @@
+{
+  "cerave": {
+    "followers": 2800000,
+    "posts_last_90d": 38,
+    "reels_last_90d": 22,
+    "avg_reel_views": 620000,
+    "avg_reel_likes": 45000,
+    "avg_reel_comments": 1800,
+    "top_reel_views": 8500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "elfcosmetics": {
+    "followers": 7200000,
+    "posts_last_90d": 62,
+    "reels_last_90d": 42,
+    "avg_reel_views": 1500000,
+    "avg_reel_likes": 120000,
+    "avg_reel_comments": 4200,
+    "top_reel_views": 28000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "neutrogena": {
+    "followers": 1600000,
+    "posts_last_90d": 28,
+    "reels_last_90d": 15,
+    "avg_reel_views": 280000,
+    "avg_reel_likes": 16000,
+    "avg_reel_comments": 680,
+    "top_reel_views": 3800000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "dove": {
+    "followers": 2100000,
+    "posts_last_90d": 22,
+    "reels_last_90d": 12,
+    "avg_reel_views": 350000,
+    "avg_reel_likes": 22000,
+    "avg_reel_comments": 920,
+    "top_reel_views": 5200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "olay": {
+    "followers": 1200000,
+    "posts_last_90d": 20,
+    "reels_last_90d": 10,
+    "avg_reel_views": 180000,
+    "avg_reel_likes": 9800,
+    "avg_reel_comments": 420,
+    "top_reel_views": 2600000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "maybelline": {
+    "followers": 12500000,
+    "posts_last_90d": 55,
+    "reels_last_90d": 35,
+    "avg_reel_views": 1100000,
+    "avg_reel_likes": 82000,
+    "avg_reel_comments": 3500,
+    "top_reel_views": 18000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "nyxcosmetics": {
+    "followers": 15800000,
+    "posts_last_90d": 50,
+    "reels_last_90d": 32,
+    "avg_reel_views": 850000,
+    "avg_reel_likes": 65000,
+    "avg_reel_comments": 2800,
+    "top_reel_views": 14000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "lorealparis": {
+    "followers": 5400000,
+    "posts_last_90d": 35,
+    "reels_last_90d": 20,
+    "avg_reel_views": 420000,
+    "avg_reel_likes": 28000,
+    "avg_reel_comments": 1100,
+    "top_reel_views": 6500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "garnier": {
+    "followers": 3200000,
+    "posts_last_90d": 25,
+    "reels_last_90d": 14,
+    "avg_reel_views": 250000,
+    "avg_reel_likes": 14000,
+    "avg_reel_comments": 580,
+    "top_reel_views": 3400000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "theordinary": {
+    "followers": 4800000,
+    "posts_last_90d": 30,
+    "reels_last_90d": 18,
+    "avg_reel_views": 520000,
+    "avg_reel_likes": 42000,
+    "avg_reel_comments": 2200,
+    "top_reel_views": 9200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "cetaphil": {
+    "followers": 980000,
+    "posts_last_90d": 18,
+    "reels_last_90d": 10,
+    "avg_reel_views": 160000,
+    "avg_reel_likes": 9200,
+    "avg_reel_comments": 380,
+    "top_reel_views": 2200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "aveeno": {
+    "followers": 720000,
+    "posts_last_90d": 14,
+    "reels_last_90d": 8,
+    "avg_reel_views": 95000,
+    "avg_reel_likes": 5500,
+    "avg_reel_comments": 240,
+    "top_reel_views": 1400000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "oreo": {
+    "followers": 4200000,
+    "posts_last_90d": 32,
+    "reels_last_90d": 18,
+    "avg_reel_views": 1800000,
+    "avg_reel_likes": 135000,
+    "avg_reel_comments": 5500,
+    "top_reel_views": 32000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "doritos": {
+    "followers": 3800000,
+    "posts_last_90d": 25,
+    "reels_last_90d": 14,
+    "avg_reel_views": 2200000,
+    "avg_reel_likes": 165000,
+    "avg_reel_comments": 6800,
+    "top_reel_views": 42000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "lays": {
+    "followers": 2400000,
+    "posts_last_90d": 20,
+    "reels_last_90d": 12,
+    "avg_reel_views": 780000,
+    "avg_reel_likes": 58000,
+    "avg_reel_comments": 2400,
+    "top_reel_views": 12000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "goldfishsmiles": {
+    "followers": 580000,
+    "posts_last_90d": 22,
+    "reels_last_90d": 14,
+    "avg_reel_views": 420000,
+    "avg_reel_likes": 32000,
+    "avg_reel_comments": 1500,
+    "top_reel_views": 7200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "poptartsus": {
+    "followers": 820000,
+    "posts_last_90d": 28,
+    "reels_last_90d": 18,
+    "avg_reel_views": 650000,
+    "avg_reel_likes": 48000,
+    "avg_reel_comments": 2200,
+    "top_reel_views": 11000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "mms": {
+    "followers": 1800000,
+    "posts_last_90d": 18,
+    "reels_last_90d": 10,
+    "avg_reel_views": 1200000,
+    "avg_reel_likes": 92000,
+    "avg_reel_comments": 3800,
+    "top_reel_views": 22000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "snickers": {
+    "followers": 1500000,
+    "posts_last_90d": 15,
+    "reels_last_90d": 8,
+    "avg_reel_views": 980000,
+    "avg_reel_likes": 75000,
+    "avg_reel_comments": 3200,
+    "top_reel_views": 18000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "pringles": {
+    "followers": 2200000,
+    "posts_last_90d": 20,
+    "reels_last_90d": 12,
+    "avg_reel_views": 1100000,
+    "avg_reel_likes": 85000,
+    "avg_reel_comments": 3500,
+    "top_reel_views": 20000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "cheezit": {
+    "followers": 420000,
+    "posts_last_90d": 16,
+    "reels_last_90d": 10,
+    "avg_reel_views": 310000,
+    "avg_reel_likes": 24000,
+    "avg_reel_comments": 1100,
+    "top_reel_views": 5500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "hotpockets": {
+    "followers": 350000,
+    "posts_last_90d": 18,
+    "reels_last_90d": 12,
+    "avg_reel_views": 280000,
+    "avg_reel_likes": 21000,
+    "avg_reel_comments": 980,
+    "top_reel_views": 4800000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "naturevalley": {
+    "followers": 380000,
+    "posts_last_90d": 14,
+    "reels_last_90d": 7,
+    "avg_reel_views": 120000,
+    "avg_reel_likes": 7200,
+    "avg_reel_comments": 320,
+    "top_reel_views": 1800000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "kindsnacks": {
+    "followers": 520000,
+    "posts_last_90d": 12,
+    "reels_last_90d": 6,
+    "avg_reel_views": 85000,
+    "avg_reel_likes": 5200,
+    "avg_reel_comments": 240,
+    "top_reel_views": 1200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "drinkolipop": {
+    "followers": 1400000,
+    "posts_last_90d": 52,
+    "reels_last_90d": 38,
+    "avg_reel_views": 1800000,
+    "avg_reel_likes": 145000,
+    "avg_reel_comments": 5800,
+    "top_reel_views": 32000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "cocacola": {
+    "followers": 3500000,
+    "posts_last_90d": 22,
+    "reels_last_90d": 10,
+    "avg_reel_views": 2800000,
+    "avg_reel_likes": 195000,
+    "avg_reel_comments": 7500,
+    "top_reel_views": 48000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "pepsi": {
+    "followers": 2200000,
+    "posts_last_90d": 18,
+    "reels_last_90d": 8,
+    "avg_reel_views": 1800000,
+    "avg_reel_likes": 130000,
+    "avg_reel_comments": 5200,
+    "top_reel_views": 35000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "gatorade": {
+    "followers": 4800000,
+    "posts_last_90d": 25,
+    "reels_last_90d": 14,
+    "avg_reel_views": 1200000,
+    "avg_reel_likes": 88000,
+    "avg_reel_comments": 3600,
+    "top_reel_views": 22000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "redbull": {
+    "followers": 22000000,
+    "posts_last_90d": 80,
+    "reels_last_90d": 55,
+    "avg_reel_views": 4200000,
+    "avg_reel_likes": 320000,
+    "avg_reel_comments": 11000,
+    "top_reel_views": 85000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "celsius": {
+    "followers": 480000,
+    "posts_last_90d": 30,
+    "reels_last_90d": 18,
+    "avg_reel_views": 350000,
+    "avg_reel_likes": 25000,
+    "avg_reel_comments": 1100,
+    "top_reel_views": 5500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "oldspice": {
+    "followers": 1800000,
+    "posts_last_90d": 16,
+    "reels_last_90d": 10,
+    "avg_reel_views": 520000,
+    "avg_reel_likes": 38000,
+    "avg_reel_comments": 1600,
+    "top_reel_views": 8500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "gillette": {
+    "followers": 3200000,
+    "posts_last_90d": 14,
+    "reels_last_90d": 8,
+    "avg_reel_views": 220000,
+    "avg_reel_likes": 12000,
+    "avg_reel_comments": 520,
+    "top_reel_views": 3200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "colgate": {
+    "followers": 1100000,
+    "posts_last_90d": 12,
+    "reels_last_90d": 6,
+    "avg_reel_views": 140000,
+    "avg_reel_likes": 7800,
+    "avg_reel_comments": 340,
+    "top_reel_views": 2000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "crest": {
+    "followers": 420000,
+    "posts_last_90d": 10,
+    "reels_last_90d": 5,
+    "avg_reel_views": 75000,
+    "avg_reel_likes": 4200,
+    "avg_reel_comments": 190,
+    "top_reel_views": 1100000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "nativeos": {
+    "followers": 320000,
+    "posts_last_90d": 22,
+    "reels_last_90d": 14,
+    "avg_reel_views": 250000,
+    "avg_reel_likes": 19000,
+    "avg_reel_comments": 850,
+    "top_reel_views": 4200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "drsquatch": {
+    "followers": 2400000,
+    "posts_last_90d": 42,
+    "reels_last_90d": 30,
+    "avg_reel_views": 2800000,
+    "avg_reel_likes": 220000,
+    "avg_reel_comments": 8500,
+    "top_reel_views": 42000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "harrys": {
+    "followers": 280000,
+    "posts_last_90d": 10,
+    "reels_last_90d": 5,
+    "avg_reel_views": 82000,
+    "avg_reel_likes": 4800,
+    "avg_reel_comments": 210,
+    "top_reel_views": 1200000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "dovemencare": {
+    "followers": 580000,
+    "posts_last_90d": 12,
+    "reels_last_90d": 6,
+    "avg_reel_views": 120000,
+    "avg_reel_likes": 7200,
+    "avg_reel_comments": 310,
+    "top_reel_views": 1800000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "tide": {
+    "followers": 620000,
+    "posts_last_90d": 14,
+    "reels_last_90d": 8,
+    "avg_reel_views": 220000,
+    "avg_reel_likes": 14000,
+    "avg_reel_comments": 620,
+    "top_reel_views": 3500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "dawndish": {
+    "followers": 280000,
+    "posts_last_90d": 10,
+    "reels_last_90d": 5,
+    "avg_reel_views": 95000,
+    "avg_reel_likes": 5800,
+    "avg_reel_comments": 260,
+    "top_reel_views": 1400000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "mrclean": {
+    "followers": 350000,
+    "posts_last_90d": 12,
+    "reels_last_90d": 6,
+    "avg_reel_views": 180000,
+    "avg_reel_likes": 11000,
+    "avg_reel_comments": 520,
+    "top_reel_views": 2800000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "febreze": {
+    "followers": 220000,
+    "posts_last_90d": 10,
+    "reels_last_90d": 5,
+    "avg_reel_views": 72000,
+    "avg_reel_likes": 4100,
+    "avg_reel_comments": 190,
+    "top_reel_views": 1100000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "swiffer": {
+    "followers": 120000,
+    "posts_last_90d": 8,
+    "reels_last_90d": 4,
+    "avg_reel_views": 48000,
+    "avg_reel_likes": 2800,
+    "avg_reel_comments": 130,
+    "top_reel_views": 720000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "methodhome": {
+    "followers": 180000,
+    "posts_last_90d": 8,
+    "reels_last_90d": 4,
+    "avg_reel_views": 35000,
+    "avg_reel_likes": 2100,
+    "avg_reel_comments": 95,
+    "top_reel_views": 520000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "purina": {
+    "followers": 850000,
+    "posts_last_90d": 18,
+    "reels_last_90d": 10,
+    "avg_reel_views": 280000,
+    "avg_reel_likes": 18000,
+    "avg_reel_comments": 850,
+    "top_reel_views": 4500000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "bluebuffalo": {
+    "followers": 420000,
+    "posts_last_90d": 14,
+    "reels_last_90d": 7,
+    "avg_reel_views": 110000,
+    "avg_reel_likes": 6800,
+    "avg_reel_comments": 320,
+    "top_reel_views": 1600000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "barkbox": {
+    "followers": 1800000,
+    "posts_last_90d": 48,
+    "reels_last_90d": 35,
+    "avg_reel_views": 2500000,
+    "avg_reel_likes": 195000,
+    "avg_reel_comments": 7200,
+    "top_reel_views": 38000000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "bounty": {
+    "followers": 85000,
+    "posts_last_90d": 6,
+    "reels_last_90d": 3,
+    "avg_reel_views": 28000,
+    "avg_reel_likes": 1600,
+    "avg_reel_comments": 75,
+    "top_reel_views": 420000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "ziploc": {
+    "followers": 120000,
+    "posts_last_90d": 8,
+    "reels_last_90d": 4,
+    "avg_reel_views": 42000,
+    "avg_reel_likes": 2400,
+    "avg_reel_comments": 110,
+    "top_reel_views": 620000,
+    "collected_at": "2025-01-15T00:00:00"
+  },
+  "gladproducts": {
+    "followers": 52000,
+    "posts_last_90d": 5,
+    "reels_last_90d": 2,
+    "avg_reel_views": 15000,
+    "avg_reel_likes": 880,
+    "avg_reel_comments": 42,
+    "top_reel_views": 220000,
+    "collected_at": "2025-01-15T00:00:00"
+  }
+}
