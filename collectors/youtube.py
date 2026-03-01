@@ -24,7 +24,7 @@ _REVIEW_RE = re.compile(
     re.IGNORECASE,
 )
 _PURCHASE_RE = re.compile(
-    r"(" + "|".join(re.escape(k) for k in PURCHASE_KEYWORDS) + r")",
+    r"\b(" + "|".join(re.escape(k) for k in PURCHASE_KEYWORDS) + r")\b",
     re.IGNORECASE,
 )
 
@@ -112,11 +112,12 @@ class YouTubeCollector:
             if not entry:
                 continue
 
-            # Skip the brand's own channel
+            # Skip the brand's own channel — strip all non-alphanumerics before
+            # comparing so "e.l.f. Cosmetics" matches "elf cosmetics" etc.
             channel = (entry.get("channel") or entry.get("uploader") or "").strip()
-            brand_lower = brand_name.lower()
-            channel_lower = channel.lower()
-            if brand_lower in channel_lower or channel_lower.replace(" ", "") == brand_lower.replace(" ", ""):
+            brand_norm   = re.sub(r"[^a-z0-9]", "", brand_name.lower())
+            channel_norm = re.sub(r"[^a-z0-9]", "", channel.lower())
+            if brand_norm in channel_norm or channel_norm == brand_norm:
                 continue
 
             # Skip videos outside the lookback window (when date is available)

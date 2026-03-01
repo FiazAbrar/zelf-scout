@@ -1,10 +1,15 @@
 from pathlib import Path
+from dotenv import load_dotenv
+load_dotenv()
 
 # --- Paths ---
 BASE_DIR = Path(__file__).parent
 DATA_DIR = BASE_DIR / "data"
-BRANDS_CSV = DATA_DIR / "brands.csv"
 DB_PATH = BASE_DIR / "zelf_cache.db"
+
+_discovered = DATA_DIR / "discovered_brands.csv"
+_seed       = DATA_DIR / "brands_seed.csv"
+BRANDS_CSV  = _discovered if _discovered.exists() else _seed
 
 # --- Scoring Weights (max points per dimension, must sum to 100) ---
 #
@@ -60,3 +65,35 @@ YOUTUBE_LOOKBACK_DAYS = 90          # days of creator video history to consider
 YOUTUBE_MAX_VIDEOS_PER_BRAND = 50   # flat search result cap per brand
 YOUTUBE_FULL_FETCH_TOP_N = 5        # top-N videos to full-fetch for likes + comments
 YOUTUBE_COMMENT_SAMPLE_SIZE = 50    # max comments to fetch from top video
+
+# --- Brand Discovery Settings ---
+DISCOVERY_QUERIES = {
+    "Beauty & Skincare": [
+        "skincare routine review",
+        "makeup haul",
+        "drugstore beauty try",
+    ],
+    "Food & Snacks": [
+        "snack haul taste test",
+        "grocery haul food review",
+    ],
+    "Beverage": [
+        "energy drink review",
+        "healthy drink haul",
+    ],
+    "Personal Care": [
+        "personal care haul",
+        "deodorant shampoo review",
+    ],
+    "Household": [
+        "cleaning products review",
+        "household haul",
+    ],
+    "Pet Care": [
+        "pet food review dog cat treats",
+    ],
+}
+
+DISCOVERY_VIDEOS_PER_QUERY = 50        # flat search cap per query
+DISCOVERY_MIN_MENTIONS = 2             # brand must appear >= N times to be kept
+DISCOVERY_MAX_BRANDS_PER_CATEGORY = 15 # cap per category → max ~90 brands total

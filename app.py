@@ -88,14 +88,15 @@ def load_all_data() -> tuple[pd.DataFrame, dict]:
     return brands_df, brand_platforms
 
 
-def collect_all_data(progress_bar=None):
-    """Run all collectors for all brands."""
-    brands_df = load_brands()
+def collect_all_data(progress_bar=None, brands=None):
+    """Run YouTube collector for all brands (or a supplied subset)."""
+    if brands is None:
+        brands_df = load_brands()
+        brands = [r["brand_name"] for _, r in brands_df.iterrows()]
     yt_collector = YouTubeCollector()
-    total = len(brands_df)
+    total = len(brands)
 
-    for i, (_, row) in enumerate(brands_df.iterrows()):
-        brand = row["brand_name"]
+    for i, brand in enumerate(brands):
         if progress_bar:
             progress_bar.progress((i + 1) / total, text=f"Collecting: {brand}")
         yt_collector.collect(brand, use_cache=False)
@@ -175,18 +176,12 @@ if st.sidebar.button("🔄 Refresh Data", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
-# Seed from sample data if no data exists
-if not get_all_metrics():
-    with st.spinner("Loading sample data..."):
-        collect_all_data()
-        st.cache_data.clear()
-        st.rerun()
 
 # Score brands
 scores_df = score_all_brands()
 
 if scores_df.empty:
-    st.warning("No data available. Click 'Refresh Data' in the sidebar to collect metrics.")
+    st.info("No data collected yet. Click **Refresh Data** in the sidebar to fetch YouTube metrics for all brands. This takes a few minutes.")
     st.stop()
 
 # Load platform data for detail views
@@ -205,18 +200,11 @@ score_range = st.sidebar.slider(
     "ICP Score Range", 0, 100, (0, 100)
 )
 
-platform_filter = st.sidebar.multiselect(
-    "Minimum Platforms Active",
-    [1, 2, 3],
-    default=[1, 2, 3],
-)
-
 # Apply filters
 filtered_df = scores_df[
     (scores_df["category"].isin(selected_categories))
     & (scores_df["icp_score"] >= score_range[0])
     & (scores_df["icp_score"] <= score_range[1])
-    & (scores_df["platforms_active"].isin(platform_filter))
 ].copy()
 
 # --- Header ---

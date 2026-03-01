@@ -28,8 +28,8 @@ def init_db(db_path: Path = None):
     # Migrate brand_scores schema if old columns exist
     try:
         conn.execute("SELECT creator_reach_score FROM brand_scores LIMIT 1")
-    except Exception:
-        # Old schema (or no table) — drop and recreate
+    except sqlite3.OperationalError:
+        # Old schema (missing column) — drop and recreate
         conn.execute("DROP TABLE IF EXISTS brand_scores")
         conn.commit()
 

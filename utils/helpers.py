@@ -1,3 +1,8 @@
+from config import CATEGORY_FIT
+
+_HIGH_FIT_CATEGORIES = {k for k, v in CATEGORY_FIT.items() if v >= 1.0}
+
+
 def format_number(n: int | float) -> str:
     """Format large numbers: 1200000 → '1.2M', 45300 → '45.3K'."""
     if n is None:
@@ -98,7 +103,7 @@ def generate_why_zelf_blurb(brand_name: str, row: dict) -> str:
         )
 
     # Category signal
-    if category in ("Beauty & Skincare", "Food & Snacks", "Personal Care"):
+    if category in _HIGH_FIT_CATEGORIES:
         parts.append(
             f". As a {category} brand, they're in Zelf's core ICP — "
             "understanding what creators are saying about them can directly inform "
