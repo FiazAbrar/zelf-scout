@@ -827,6 +827,18 @@ with tab_about:
 
 <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
 
+<h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How brands are selected</h2>
+<p>Brands are not hand-picked. They are discovered from YouTube content using this process:</p>
+<ol style="padding-left:20px;margin:0 0 12px">
+<li style="margin-bottom:8px">We run a set of category-specific YouTube searches — things like <em>"skincare routine review"</em>, <em>"snack haul taste test"</em>, <em>"energy drink review"</em> — and collect the video titles from the results.</li>
+<li style="margin-bottom:8px">We send those titles to an LLM with the prompt: find every real CPG brand name mentioned across these titles, count how many titles each appears in, return nothing that is not a real brand.</li>
+<li style="margin-bottom:8px">Brands that appear in enough titles are kept. Each brand is assigned to the category where it appeared most.</li>
+</ol>
+<p>The honest caveat: the search queries themselves are hand-written by us. We chose the categories and we chose the query phrasing. So the brands are organically surfaced from YouTube content, but the categories and search framing are ours. A brand that doesn't appear in our query results won't be discovered regardless of how much creator activity it has.</p>
+<p>If discovery returns fewer than three brands for a category, we fall back to a hand-curated seed list for that category.</p>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
 <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How we collect data</h2>
 <p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The query is literally <code style="background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:13px">ytsearch50:[brand name]</code>.</p>
 <p>We take the first <strong>50 results</strong> published within the last <strong>90 days</strong>. We exclude any video uploaded by the brand's own channel (matched by channel name).</p>
