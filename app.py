@@ -101,17 +101,26 @@ def collect_all_data(progress_bar=None, brands=None):
         yt.collect(brand, use_cache=False)
 
 
-def score_all_brands() -> pd.DataFrame:
+def score_all_brands() -> tuple[pd.DataFrame, int]:
+    """Returns (scores_df, uncollected_count).
+
+    Only brands with actual YouTube data are scored. Uncollected brands are
+    excluded so they don't pollute the percentile distribution with zeros.
+    """
     brands_df, brand_platforms = load_all_data()
     scorer = ICPScorer()
-    brand_data = [
-        {
-            "brand_name": r["brand_name"],
-            "category": r["category"],
-            "platforms": brand_platforms.get(r["brand_name"], {}),
-        }
-        for _, r in brands_df.iterrows()
-    ]
+
+    collected, uncollected = [], []
+    for _, r in brands_df.iterrows():
+        entry = {"brand_name": r["brand_name"], "category": r["category"],
+                 "platforms": brand_platforms.get(r["brand_name"], {})}
+        if brand_platforms.get(r["brand_name"]):
+            collected.append(entry)
+        else:
+            uncollected.append(r["brand_name"])
+
+    brand_data = collected
+    uncollected_count = len(uncollected)
     scores_df = scorer.score_brands(brand_data)
     if not scores_df.empty:
         upsert_scores([
@@ -132,7 +141,7 @@ def score_all_brands() -> pd.DataFrame:
             }
             for _, r in scores_df.iterrows()
         ])
-    return scores_df
+    return scores_df, uncollected_count
 
 
 def _md(text: str) -> str:
@@ -179,7 +188,7 @@ if st.sidebar.button("Refresh Data", use_container_width=True):
     st.rerun()
 
 # ── Data + filters ────────────────────────────────────────────────────────────
-scores_df = score_all_brands()
+scores_df, uncollected_count = score_all_brands()
 
 if scores_df.empty:
     st.info("No data yet — click **Refresh Data** in the sidebar.")
@@ -244,6 +253,16 @@ c3.metric("Avg Score", f"{avg:.0f}",
           help="Mean ICP score across all filtered brands.")
 c4.metric("Top Category", top_cat,
           help="Category with the highest average ICP score.")
+
+if uncollected_count:
+    st.markdown(
+        f'<div style="margin-top:16px;padding:10px 16px;background:#fafafa;border:1px solid #e2e8f0;'
+        f'border-radius:8px;font-size:13px;color:#64748b">'
+        f'<strong style="color:#0f172a">{uncollected_count} brands</strong> have no data yet '
+        f'and are excluded from scoring — click <strong>Refresh Data</strong> to collect them.'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
