@@ -69,70 +69,106 @@ def platform_badges_html(platforms: dict) -> str:
 
 
 def generate_why_zelf_blurb(brand_name: str, row: dict) -> str:
-    """Generate a 'Why this brand needs Zelf' blurb based on metrics."""
-    score = row.get("icp_score", 0)
-    category = row.get("category", "CPG")
-    platforms = row.get("platforms_active", 0)
-    total_videos = row.get("total_videos", row.get("total_shorts", 0))
-    total_views = row.get("total_views", 0)
+    """Sharp, data-specific sales insight for a brand."""
+    score              = row.get("icp_score", 0)
+    category           = row.get("category", "CPG")
+    total_views        = row.get("total_views", 0)
+    total_videos       = row.get("total_videos", 0)
+    unique_creators    = int(row.get("unique_creators", 0))
+    breakout_ratio     = row.get("breakout_ratio", 0.0)
+    review_intent      = row.get("review_intent_ratio", 0.0)
+    purchase_intent    = row.get("purchase_intent_score", 0.0)
+    reach_score        = row.get("creator_reach_score", 0)
+    intent_score       = row.get("content_intent_score", 0)
 
-    parts = [f"**{brand_name}**"]
+    lines = []
 
-    # Creator ecosystem volume signal
-    if total_videos > 100:
-        parts.append(
-            f"has a massive creator ecosystem — {format_number(total_videos)} videos "
-            f"about this brand in the last 90 days across {platforms} platform{'s' if platforms != 1 else ''}"
-        )
-    elif total_videos > 20:
-        parts.append(
-            f"has an active creator ecosystem — {format_number(total_videos)} creator "
-            f"videos about this brand in the last 90 days"
-        )
-    else:
-        parts.append("has limited creator video activity around the brand right now")
-
-    # Views signal
-    if total_views > 10_000_000:
-        parts.append(
-            f"generating {format_number(total_views)} total views across creator content"
-        )
-    elif total_views > 1_000_000:
-        parts.append(
-            f"with {format_number(total_views)} total views on creator content"
-        )
-
-    # Category signal
-    if category in _HIGH_FIT_CATEGORIES:
-        parts.append(
-            f". As a {category} brand, they're in Zelf's core ICP — "
-            "understanding what creators are saying about them can directly inform "
-            "product strategy, influencer partnerships, and competitive positioning."
-        )
-    else:
-        parts.append(
-            f". As a {category} brand, Zelf can help them understand creator sentiment "
-            "and benchmark their share of voice against competitors."
-        )
-
-    # Score-based recommendation
+    # ── Lead signal ───────────────────────────────────────────────────────────
     if score >= 70:
-        parts.append(
-            " **Recommendation: Priority outreach.** High creator volume, strong engagement, "
-            "and strong category fit — an ideal Zelf customer today."
-        )
-    elif score >= 40:
-        parts.append(
-            " **Recommendation: Nurture lead.** Growing creator presence — "
-            "will benefit from Zelf as their social video ecosystem scales."
+        if unique_creators >= 30:
+            lines.append(
+                f"**{unique_creators} independent creators** published about {brand_name} "
+                f"in the last 90 days — that level of organic coverage is rare and usually "
+                f"precedes a spike in consumer demand."
+            )
+        else:
+            lines.append(
+                f"{brand_name} is generating **{format_number(total_views)} views** from "
+                f"creator content with strong intent signals — the ecosystem is small but loud."
+            )
+    elif unique_creators > 0:
+        lines.append(
+            f"{unique_creators} creators covered {brand_name} in the last 90 days, "
+            f"accumulating **{format_number(total_views)} views**."
         )
     else:
-        parts.append(
-            " **Recommendation: Monitor.** Low creator video activity for now, "
-            "but worth tracking as the brand grows its social presence."
+        lines.append(
+            f"Creator data for {brand_name} is thin right now — "
+            f"either the brand is early-stage or the category search didn't surface much."
         )
 
-    return " ".join(parts)
+    # ── Intent gap analysis ───────────────────────────────────────────────────
+    if review_intent > 0.3 and purchase_intent < 0.05:
+        lines.append(
+            f"Creators are actively reviewing it — {review_intent*100:.0f}% of titles "
+            f"are intent-driven — but comment sections show almost no purchase signals. "
+            f"That gap is exactly what Zelf closes: understanding *why* viewers aren't converting."
+        )
+    elif review_intent > 0.2 and purchase_intent > 0.1:
+        lines.append(
+            f"Strong two-sided intent: {review_intent*100:.0f}% review-titled content "
+            f"and real purchase language in the comments. Their audience is ready to buy — "
+            f"they just need better visibility into who those creators are."
+        )
+    elif review_intent > 0 and purchase_intent == 0:
+        lines.append(
+            f"Creators mention it but audiences aren't reacting with purchase intent. "
+            f"Could be a brand awareness play that hasn't converted — Zelf can help them figure out why."
+        )
+
+    # ── Breakout / viral signal ────────────────────────────────────────────────
+    if breakout_ratio > 8:
+        lines.append(
+            f"One video is pulling **{breakout_ratio:.0f}× the average views** — "
+            f"a breakout that their team probably doesn't know is happening."
+        )
+    elif breakout_ratio > 4:
+        lines.append(
+            f"Viral potential is real: top video is {breakout_ratio:.1f}× the average, "
+            f"suggesting the category is receptive to a hit piece."
+        )
+
+    # ── Category + recommendation ─────────────────────────────────────────────
+    if score >= 70:
+        if category in _HIGH_FIT_CATEGORIES:
+            lines.append(
+                f"**Call this week.** {category} is Zelf's core market and "
+                f"{brand_name} has the creator volume to make the ROI obvious in the first demo."
+            )
+        else:
+            lines.append(
+                f"**Worth a call.** {category} isn't Zelf's primary vertical but the "
+                f"creator footprint is large enough that the value prop translates."
+            )
+    elif score >= 40:
+        if reach_score > 20:
+            lines.append(
+                f"The reach is there — **{format_number(total_views)} views** is a real number. "
+                f"Intent is the gap. Nurture until their creator program matures, "
+                f"then they'll be an easy close."
+            )
+        else:
+            lines.append(
+                f"Early-stage creator ecosystem. Come back in a quarter — "
+                f"if the trend holds this becomes a strong lead."
+            )
+    else:
+        lines.append(
+            f"Not the right time. Creator footprint is too small to make the pitch land. "
+            f"Flag for re-evaluation if the brand raises or launches a new product line."
+        )
+
+    return "\n\n".join(lines)
 
 
 def engagement_rate_fmt(rate: float) -> str:

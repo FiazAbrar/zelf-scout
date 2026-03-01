@@ -1,7 +1,6 @@
 import sys
 from pathlib import Path
 
-# Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
@@ -9,61 +8,87 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
-from config import (
-    BRANDS_CSV, SCORING_WEIGHTS,
-    CATEGORY_FIT, DB_PATH,
-)
+from config import BRANDS_CSV, SCORING_WEIGHTS, CATEGORY_FIT
 from database.db import (
-    init_db, get_all_metrics, upsert_metrics, upsert_scores,
-    get_all_scores, get_data_freshness, get_data_sources_summary,
+    init_db, get_all_metrics, upsert_scores,
+    get_data_freshness, get_data_sources_summary,
 )
 from collectors.youtube import YouTubeCollector
 from scoring.scorer import ICPScorer
-from utils.helpers import (
-    format_number, score_color, score_tier, score_badge_html,
-    platform_badges_html, generate_why_zelf_blurb, engagement_rate_fmt,
-)
+from utils.helpers import format_number, score_tier, generate_why_zelf_blurb, engagement_rate_fmt
 
-# --- Page Config ---
 st.set_page_config(
-    page_title="Zelf ICP Lead Scorer",
-    page_icon="🎯",
+    page_title="Zelf ICP Scorer",
+    page_icon="⬡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# --- Custom CSS ---
 st.markdown("""
 <style>
-    .score-badge {
-        display: inline-block;
-        padding: 2px 10px;
-        border-radius: 12px;
-        font-weight: bold;
-        color: white;
-        font-size: 14px;
-    }
-    .metric-card {
-        background: #f8fafc;
-        border-radius: 8px;
-        padding: 16px;
-        border: 1px solid #e2e8f0;
-    }
-    .brand-header {
-        font-size: 24px;
-        font-weight: 700;
-        margin-bottom: 4px;
-    }
-    div[data-testid="stMetric"] {
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 12px 16px;
-    }
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+
+/* Sidebar */
+section[data-testid="stSidebar"] { border-right: 1px solid #f1f5f9; }
+
+/* Metric cards */
+div[data-testid="stMetric"] {
+    background: transparent;
+    border: none;
+    border-left: 3px solid #6366f1;
+    padding: 8px 16px;
+    border-radius: 0;
+}
+div[data-testid="stMetricLabel"] > div { color: #94a3b8; font-size: 12px; font-weight: 500; letter-spacing: 0.05em; text-transform: uppercase; }
+div[data-testid="stMetricValue"] > div { color: #0f172a; font-size: 28px; font-weight: 700; }
+
+/* Tabs */
+button[data-baseweb="tab"] { font-size: 13px; font-weight: 500; color: #64748b; }
+button[data-baseweb="tab"][aria-selected="true"] { color: #6366f1; border-bottom-color: #6366f1; }
+
+/* Buttons */
+div[data-testid="stButton"] > button {
+    background: #6366f1;
+    color: white;
+    border: none;
+    font-weight: 500;
+    border-radius: 6px;
+    padding: 0.4rem 1rem;
+}
+div[data-testid="stButton"] > button:hover { background: #4f46e5; }
+
+/* Download button */
+div[data-testid="stDownloadButton"] > button {
+    background: transparent;
+    color: #6366f1;
+    border: 1px solid #6366f1;
+    font-weight: 500;
+    border-radius: 6px;
+}
+
+/* Tier pill */
+.tier-hot  { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:600; background:#ecfdf5; color:#059669; }
+.tier-warm { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:600; background:#fffbeb; color:#d97706; }
+.tier-low  { display:inline-block; padding:2px 10px; border-radius:99px; font-size:11px; font-weight:600; background:#f8fafc; color:#94a3b8; }
+
+/* Score number in deep dive */
+.score-display { text-align:center; }
+.score-display .score-num { font-size:56px; font-weight:700; line-height:1; letter-spacing:-2px; }
+.score-display .score-label { font-size:11px; font-weight:500; color:#94a3b8; text-transform:uppercase; letter-spacing:0.08em; margin-top:4px; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Init ---
+PLOTLY_LAYOUT = dict(
+    font_family="Inter",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    margin=dict(t=24, b=24, l=16, r=16),
+    xaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
+    yaxis=dict(showgrid=True, gridcolor="#f1f5f9", zeroline=False),
+)
+
 init_db()
 
 
@@ -73,423 +98,378 @@ def load_brands() -> pd.DataFrame:
 
 
 def load_all_data() -> tuple[pd.DataFrame, dict]:
-    """Load all metrics from DB and organize by brand."""
     brands_df = load_brands()
     all_metrics = get_all_metrics()
-
-    # Organize metrics by brand
     brand_platforms = {}
     for m in all_metrics:
         bn = m["brand_name"]
         if bn not in brand_platforms:
             brand_platforms[bn] = {}
         brand_platforms[bn][m["platform"]] = m["metrics"]
-
     return brands_df, brand_platforms
 
 
 def collect_all_data(progress_bar=None, brands=None):
-    """Run YouTube collector for all brands (or a supplied subset)."""
     if brands is None:
         brands_df = load_brands()
         brands = [r["brand_name"] for _, r in brands_df.iterrows()]
-    yt_collector = YouTubeCollector()
-    total = len(brands)
-
+    yt = YouTubeCollector()
     for i, brand in enumerate(brands):
         if progress_bar:
-            progress_bar.progress((i + 1) / total, text=f"Collecting: {brand}")
-        yt_collector.collect(brand, use_cache=False)
+            progress_bar.progress((i + 1) / len(brands), text=f"Collecting: {brand}")
+        yt.collect(brand, use_cache=False)
 
 
 def score_all_brands() -> pd.DataFrame:
-    """Score all brands from cached metrics."""
     brands_df, brand_platforms = load_all_data()
     scorer = ICPScorer()
-
-    brand_data = []
-    for _, row in brands_df.iterrows():
-        bn = row["brand_name"]
-        platforms = brand_platforms.get(bn, {})
-        brand_data.append({
-            "brand_name": bn,
-            "category": row["category"],
-            "platforms": platforms,
-        })
-
+    brand_data = [
+        {
+            "brand_name": r["brand_name"],
+            "category": r["category"],
+            "platforms": brand_platforms.get(r["brand_name"], {}),
+        }
+        for _, r in brands_df.iterrows()
+    ]
     scores_df = scorer.score_brands(brand_data)
-
     if not scores_df.empty:
-        # Save scores to DB
-        score_records = []
-        for _, r in scores_df.iterrows():
-            score_records.append({
-                "brand_name": r["brand_name"],
-                "category": r["category"],
+        upsert_scores([
+            {
+                "brand_name": r["brand_name"], "category": r["category"],
                 "icp_score": r["icp_score"],
                 "creator_reach_score": r["creator_reach_score"],
                 "creator_ecosystem_score": r["creator_ecosystem_score"],
                 "content_intent_score": r["content_intent_score"],
                 "category_fit_score": r["category_fit_score"],
                 "platforms_active": r["platforms_active"],
-                "total_videos": r["total_videos"],
-                "total_views": r["total_views"],
-                "total_likes": r["total_likes"],
-                "total_comments": r["total_comments"],
+                "total_videos": r["total_videos"], "total_views": r["total_views"],
+                "total_likes": r["total_likes"], "total_comments": r["total_comments"],
                 "unique_creators": int(r["unique_creators"]),
                 "breakout_ratio": r["breakout_ratio"],
                 "review_intent_ratio": r["review_intent_ratio"],
                 "purchase_intent_score": r["purchase_intent_score"],
-            })
-        upsert_scores(score_records)
-
+            }
+            for _, r in scores_df.iterrows()
+        ])
     return scores_df
 
 
-# --- Sidebar ---
-st.sidebar.title("🎯 Zelf ICP Scorer")
-st.sidebar.markdown("*Discover which CPG brands need Zelf the most*")
+# ── Sidebar ───────────────────────────────────────────────────────────────────
+st.sidebar.markdown("## Zelf ICP Scorer")
+st.sidebar.markdown("<span style='color:#94a3b8;font-size:13px'>CPG creator buzz → ranked leads</span>", unsafe_allow_html=True)
 st.sidebar.divider()
 
-# Data freshness
 freshness = get_data_freshness()
+sources   = get_data_sources_summary()
 if freshness:
-    st.sidebar.caption(f"📅 Data last updated: {freshness[:10]}")
+    st.sidebar.caption(f"Updated {freshness[:10]}  ·  {sum(sources.values())} brands")
 else:
-    st.sidebar.caption("📅 No data collected yet")
+    st.sidebar.caption("No data yet")
 
-# Data sources
-sources = get_data_sources_summary()
-if sources:
-    source_text = " · ".join(f"{k}: {v}" for k, v in sources.items())
-    st.sidebar.caption(f"📊 Sources: {source_text}")
+st.sidebar.markdown("")
+if st.sidebar.button("Refresh Data", use_container_width=True):
+    with st.spinner("Fetching YouTube metrics…"):
+        prog = st.sidebar.progress(0, text="Starting…")
+        collect_all_data(progress_bar=prog)
+        prog.empty()
+    st.cache_data.clear()
+    st.rerun()
 
-st.sidebar.divider()
-
-# Refresh button
-if st.sidebar.button("🔄 Refresh Data", width="stretch"):
-    with st.spinner("Collecting data from YouTube..."):
-        progress = st.sidebar.progress(0, text="Starting collection...")
-        collect_all_data(progress_bar=progress)
-        progress.empty()
-        st.sidebar.success("Collection complete!")
-        st.cache_data.clear()
-        st.rerun()
-
-
-# Score brands
+# ── Data loading ──────────────────────────────────────────────────────────────
 scores_df = score_all_brands()
 
 if scores_df.empty:
-    st.info("No data collected yet. Click **Refresh Data** in the sidebar to fetch YouTube metrics for all brands. This takes a few minutes.")
+    st.info("No data yet — click **Refresh Data** in the sidebar.")
     st.stop()
 
-# Load platform data for detail views
 brands_df, brand_platforms = load_all_data()
 
-# --- Sidebar Filters ---
+# ── Sidebar filters ───────────────────────────────────────────────────────────
 st.sidebar.divider()
-st.sidebar.subheader("Filters")
+st.sidebar.markdown("<span style='font-size:12px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em'>Filters</span>", unsafe_allow_html=True)
 
 categories = sorted(scores_df["category"].unique())
-selected_categories = st.sidebar.multiselect(
-    "Category", categories, default=categories
-)
+selected_categories = st.sidebar.multiselect("Category", categories, default=categories, label_visibility="collapsed")
+score_range = st.sidebar.slider("ICP Score", 0, 100, (0, 100))
 
-score_range = st.sidebar.slider(
-    "ICP Score Range", 0, 100, (0, 100)
-)
-
-# Apply filters
 filtered_df = scores_df[
-    (scores_df["category"].isin(selected_categories))
-    & (scores_df["icp_score"] >= score_range[0])
-    & (scores_df["icp_score"] <= score_range[1])
+    scores_df["category"].isin(selected_categories) &
+    scores_df["icp_score"].between(score_range[0], score_range[1])
 ].copy()
 
-# --- Header ---
-st.title("Zelf ICP Lead Scorer")
-st.markdown("**Discover and rank CPG brands by their creator video ecosystem — "
-            "the #1 signal for Zelf-readiness.**")
+# ── Header ────────────────────────────────────────────────────────────────────
+st.markdown("# ICP Lead Scorer")
+st.markdown("<span style='color:#64748b'>Rank CPG brands by organic creator activity — the leading signal for Zelf-readiness.</span>", unsafe_allow_html=True)
+st.markdown("")
 
-# --- Summary Cards ---
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-    st.metric("Brands Scored", len(filtered_df))
-with col2:
-    avg_score = filtered_df["icp_score"].mean() if len(filtered_df) > 0 else 0
-    st.metric("Avg ICP Score", f"{avg_score:.1f}")
-with col3:
-    if len(filtered_df) > 0:
-        top_cat = filtered_df.groupby("category")["icp_score"].mean().idxmax()
-        st.metric("Top Category", top_cat)
-    else:
-        st.metric("Top Category", "—")
-with col4:
-    hot_leads = len(filtered_df[filtered_df["icp_score"] >= 70])
-    st.metric("Hot Leads", hot_leads)
+# ── Summary strip ─────────────────────────────────────────────────────────────
+c1, c2, c3, c4 = st.columns(4)
+hot = filtered_df[filtered_df["icp_score"] >= 70]
+warm = filtered_df[(filtered_df["icp_score"] >= 40) & (filtered_df["icp_score"] < 70)]
+avg = filtered_df["icp_score"].mean() if len(filtered_df) else 0
+top_cat = filtered_df.groupby("category")["icp_score"].mean().idxmax() if len(filtered_df) else "—"
 
-st.divider()
+c1.metric("Brands", len(filtered_df))
+c2.metric("Hot Leads", len(hot))
+c3.metric("Avg Score", f"{avg:.0f}")
+c4.metric("Top Category", top_cat)
 
-# --- Tabs ---
-tab_table, tab_charts, tab_detail = st.tabs(["📋 Ranked Table", "📊 Charts", "🔍 Brand Deep Dive"])
+st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-# --- Tab 1: Ranked Table ---
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+tab_table, tab_explore, tab_detail = st.tabs(["Ranking", "Explore", "Brand Deep Dive"])
+
+# ── Tab 1: Ranking table ──────────────────────────────────────────────────────
 with tab_table:
-    st.subheader("Lead Ranking")
+    def _tier_pill(score):
+        if score >= 70: return '<span class="tier-hot">Hot Lead</span>'
+        if score >= 40: return '<span class="tier-warm">Warm</span>'
+        return '<span class="tier-low">Low</span>'
 
-    # Build display dataframe
-    display_data = []
-    for _, row in filtered_df.iterrows():
-        tier = score_tier(row["icp_score"])
-        display_data.append({
-            "Rank": int(row["rank"]),
-            "Brand": row["brand_name"],
-            "Category": row["category"],
-            "ICP Score": row["icp_score"],
-            "Tier": tier,
-            "Reach": row["creator_reach_score"],
-            "Ecosystem": row["creator_ecosystem_score"],
-            "Intent": row["content_intent_score"],
-            "Category Fit": row["category_fit_score"],
-            "Creators": int(row["unique_creators"]),
-            "Total Views": row["total_views"],
+    rows = []
+    for _, r in filtered_df.iterrows():
+        rows.append({
+            "#": int(r["rank"]),
+            "Brand": r["brand_name"],
+            "Category": r["category"],
+            "Score": r["icp_score"],
+            "Reach": r["creator_reach_score"],
+            "Ecosystem": r["creator_ecosystem_score"],
+            "Intent": r["content_intent_score"],
+            "Cat. Fit": r["category_fit_score"],
+            "Creators": int(r["unique_creators"]),
+            "Views": r["total_views"],
         })
 
-    display_df = pd.DataFrame(display_data)
+    disp = pd.DataFrame(rows)
 
-    if not display_df.empty:
-        def color_score(val):
-            color = score_color(val)
-            return f"background-color: {color}; color: white; font-weight: bold; border-radius: 8px; text-align: center"
+    def _shade_score(val):
+        if val >= 70: return "color:#059669;font-weight:700"
+        if val >= 40: return "color:#d97706;font-weight:700"
+        return "color:#94a3b8;font-weight:600"
 
-        def color_tier(val):
-            colors = {"Hot Lead": "#dcfce7", "Warm Lead": "#fef9c3", "Low Priority": "#fee2e2"}
-            return f"background-color: {colors.get(val, '#f1f5f9')}"
-
-        styled = display_df.style.map(
-            color_score, subset=["ICP Score"]
-        ).map(
-            color_tier, subset=["Tier"]
-        ).format({
-            "ICP Score": "{:.1f}",
-            "Reach": "{:.1f}",
-            "Ecosystem": "{:.1f}",
-            "Intent": "{:.1f}",
-            "Category Fit": "{:.1f}",
-            "Total Views": lambda x: format_number(x),
+    styled = (
+        disp.style
+        .applymap(_shade_score, subset=["Score"])
+        .format({
+            "Score": "{:.1f}", "Reach": "{:.1f}", "Ecosystem": "{:.1f}",
+            "Intent": "{:.1f}", "Cat. Fit": "{:.1f}",
+            "Views": lambda x: format_number(x),
         })
+        .set_properties(**{"font-size": "13px"})
+        .set_table_styles([
+            {"selector": "thead th", "props": [
+                ("font-size", "11px"), ("font-weight", "600"),
+                ("color", "#94a3b8"), ("text-transform", "uppercase"),
+                ("letter-spacing", ".05em"), ("border-bottom", "1px solid #e2e8f0"),
+            ]},
+            {"selector": "tbody tr:hover", "props": [("background-color", "#f8fafc")]},
+            {"selector": "td", "props": [("border-bottom", "1px solid #f8fafc"), ("padding", "8px 12px")]},
+        ])
+    )
 
-        st.dataframe(styled, width="stretch", height=600, hide_index=True)
+    st.dataframe(styled, height=580, hide_index=True, use_container_width=True)
 
-    # Export
-    if st.button("📥 Export to CSV"):
-        csv = display_df.to_csv(index=False)
-        st.download_button("Download CSV", csv, "zelf_icp_scores.csv", "text/csv")
+    csv = disp.to_csv(index=False)
+    st.download_button("Export CSV", csv, "zelf_icp_scores.csv", "text/csv")
 
-# --- Tab 2: Charts ---
-with tab_charts:
-    chart_tab1, chart_tab2, chart_tab3, chart_tab4 = st.tabs([
-        "Score Distribution", "Category Comparison", "Platform Heatmap", "Top 10 Leads"
-    ])
 
-    with chart_tab1:
-        st.subheader("ICP Score Distribution")
-        fig = px.histogram(
-            filtered_df, x="icp_score", nbins=20,
-            color_discrete_sequence=["#6366f1"],
-            labels={"icp_score": "ICP Score"},
+# ── Tab 2: Explore ────────────────────────────────────────────────────────────
+with tab_explore:
+    col_left, col_right = st.columns(2)
+
+    # Opportunity scatter
+    with col_left:
+        st.markdown("**Opportunity Matrix**")
+        st.caption("Reach vs. intent — brands top-right are highest priority")
+
+        fig = px.scatter(
+            filtered_df,
+            x="creator_reach_score",
+            y="content_intent_score",
+            size="unique_creators",
+            color="category",
+            hover_name="brand_name",
+            hover_data={"icp_score": ":.1f", "unique_creators": True,
+                        "creator_reach_score": False, "content_intent_score": False},
+            size_max=36,
+            color_discrete_sequence=px.colors.qualitative.Pastel,
         )
-        fig.add_vrect(x0=70, x1=100, fillcolor="green", opacity=0.1,
-                       annotation_text="Hot Leads", annotation_position="top right")
-        fig.add_vrect(x0=40, x1=70, fillcolor="yellow", opacity=0.1,
-                       annotation_text="Warm", annotation_position="top right")
-        fig.add_vrect(x0=0, x1=40, fillcolor="red", opacity=0.05,
-                       annotation_text="Low Priority", annotation_position="top left")
-        fig.update_layout(yaxis_title="Number of Brands", bargap=0.1)
-        st.plotly_chart(fig, width="stretch")
-
-    with chart_tab2:
-        st.subheader("Average ICP Score by Category")
-        cat_scores = filtered_df.groupby("category")["icp_score"].mean().sort_values(ascending=True)
-        fig = px.bar(
-            x=cat_scores.values, y=cat_scores.index,
-            orientation="h",
-            color=cat_scores.values,
-            color_continuous_scale="RdYlGn",
-            labels={"x": "Average ICP Score", "y": "Category"},
-        )
-        fig.update_layout(showlegend=False, coloraxis_showscale=False)
-        st.plotly_chart(fig, width="stretch")
-
-    with chart_tab3:
-        st.subheader("Sub-Score Heatmap")
-        heatmap_data = filtered_df.set_index("brand_name")[
-            ["creator_reach_score", "creator_ecosystem_score",
-             "content_intent_score", "category_fit_score"]
-        ].rename(columns={
-            "creator_reach_score": "Reach",
-            "creator_ecosystem_score": "Ecosystem",
-            "content_intent_score": "Intent",
-            "category_fit_score": "Category Fit",
-        })
-        # Show top 20 for readability
-        heatmap_data = heatmap_data.head(20)
-        fig = px.imshow(
-            heatmap_data,
-            color_continuous_scale="RdYlGn",
-            aspect="auto",
-            labels={"color": "Score"},
-        )
-        fig.update_layout(height=600)
-        st.plotly_chart(fig, width="stretch")
-
-    with chart_tab4:
-        st.subheader("Top 10 Leads")
-        top10 = filtered_df.head(10)
-        fig = px.bar(
-            top10, x="icp_score", y="brand_name",
-            orientation="h",
-            color="icp_score",
-            color_continuous_scale="RdYlGn",
-            labels={"icp_score": "ICP Score", "brand_name": "Brand"},
-        )
+        fig.add_hline(y=filtered_df["content_intent_score"].median(),
+                      line_dash="dot", line_color="#e2e8f0", line_width=1)
+        fig.add_vline(x=filtered_df["creator_reach_score"].median(),
+                      line_dash="dot", line_color="#e2e8f0", line_width=1)
         fig.update_layout(
-            yaxis={"categoryorder": "total ascending"},
-            showlegend=False,
-            coloraxis_showscale=False,
-            height=400,
+            **PLOTLY_LAYOUT,
+            xaxis_title="Creator Reach", yaxis_title="Content Intent",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                        font=dict(size=11)),
+            height=380,
         )
-        st.plotly_chart(fig, width="stretch")
+        st.plotly_chart(fig, use_container_width=True)
 
-# --- Tab 3: Brand Deep Dive ---
+    # Top 10 bar
+    with col_right:
+        st.markdown("**Top 15 Brands**")
+        st.caption("By ICP score")
+
+        top15 = filtered_df.head(15).sort_values("icp_score")
+        fig = go.Figure(go.Bar(
+            x=top15["icp_score"],
+            y=top15["brand_name"],
+            orientation="h",
+            marker_color=[
+                "#6366f1" if s >= 70 else "#a5b4fc" if s >= 40 else "#e2e8f0"
+                for s in top15["icp_score"]
+            ],
+            text=top15["icp_score"].round(1),
+            textposition="outside",
+            textfont=dict(size=11, color="#64748b"),
+        ))
+        fig.update_layout(
+            **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+            xaxis=dict(range=[0, 105], showgrid=False, showticklabels=False, zeroline=False),
+            yaxis=dict(showgrid=False, zeroline=False),
+            height=420,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Category avg bar
+    st.markdown("**Average ICP Score by Category**")
+    cat_avg = (
+        filtered_df.groupby("category")["icp_score"]
+        .agg(["mean", "count"])
+        .reset_index()
+        .sort_values("mean", ascending=True)
+    )
+    fig = go.Figure(go.Bar(
+        x=cat_avg["mean"].round(1),
+        y=cat_avg["category"],
+        orientation="h",
+        marker_color="#6366f1",
+        opacity=0.85,
+        text=cat_avg.apply(lambda r: f"{r['mean']:.0f}  ({int(r['count'])} brands)", axis=1),
+        textposition="outside",
+        textfont=dict(size=11, color="#64748b"),
+    ))
+    fig.update_layout(
+        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+        xaxis=dict(range=[0, 105], showgrid=False, showticklabels=False, zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False),
+        height=280,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+
+# ── Tab 3: Brand Deep Dive ────────────────────────────────────────────────────
 with tab_detail:
-    st.subheader("Brand Deep Dive")
-
     brand_names = filtered_df["brand_name"].tolist()
-    selected_brand = st.selectbox("Select a brand", brand_names)
+    selected = st.selectbox("", brand_names, label_visibility="collapsed")
 
-    if selected_brand:
-        brand_row = filtered_df[filtered_df["brand_name"] == selected_brand].iloc[0]
-        brand_metrics = brand_platforms.get(selected_brand, {})
+    if selected:
+        row = filtered_df[filtered_df["brand_name"] == selected].iloc[0]
+        m   = brand_platforms.get(selected, {}).get("youtube", {})
+        tier = score_tier(row["icp_score"])
 
-        # Header
-        col_head, col_score = st.columns([3, 1])
-        with col_head:
-            st.markdown(f"### {selected_brand}")
-            st.caption(f"{brand_row['category']} · {score_tier(brand_row['icp_score'])} · "
-                        f"{int(brand_row['platforms_active'])} platform{'s' if brand_row['platforms_active'] != 1 else ''} active")
-        with col_score:
-            color = score_color(brand_row["icp_score"])
+        # Header row
+        hcol, scol = st.columns([5, 1])
+        with hcol:
+            st.markdown(f"### {selected}")
+            tier_class = "tier-hot" if row["icp_score"] >= 70 else "tier-warm" if row["icp_score"] >= 40 else "tier-low"
             st.markdown(
-                f'<div style="text-align:center;padding:10px;">'
-                f'<div style="font-size:48px;font-weight:bold;color:{color};">'
-                f'{brand_row["icp_score"]:.0f}</div>'
-                f'<div style="color:#6b7280;font-size:14px;">ICP Score</div></div>',
+                f'<span class="{tier_class}">{tier}</span>'
+                f'<span style="color:#94a3b8;font-size:13px;margin-left:10px">{row["category"]}</span>',
+                unsafe_allow_html=True,
+            )
+        with scol:
+            score_color = "#059669" if row["icp_score"] >= 70 else "#d97706" if row["icp_score"] >= 40 else "#94a3b8"
+            st.markdown(
+                f'<div class="score-display">'
+                f'<div class="score-num" style="color:{score_color}">{row["icp_score"]:.0f}</div>'
+                f'<div class="score-label">ICP Score</div>'
+                f'</div>',
                 unsafe_allow_html=True,
             )
 
-        st.divider()
+        st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
-        # Radar chart + metrics side by side
-        col_radar, col_metrics = st.columns([1, 1])
+        left, right = st.columns([1, 1])
 
-        with col_radar:
-            st.markdown("**Score Breakdown**")
-            dimensions = ["Reach", "Ecosystem", "Intent", "Category Fit"]
-            max_vals = [
-                SCORING_WEIGHTS["creator_reach"],
-                SCORING_WEIGHTS["creator_ecosystem"],
-                SCORING_WEIGHTS["content_intent"],
-                SCORING_WEIGHTS["category_fit"],
-            ]
-            values = [
-                brand_row["creator_reach_score"],
-                brand_row["creator_ecosystem_score"],
-                brand_row["content_intent_score"],
-                brand_row["category_fit_score"],
-            ]
-            # Normalize to 0-1 for radar
-            normalized = [v / m if m > 0 else 0 for v, m in zip(values, max_vals)]
+        # Radar
+        with left:
+            dims   = ["Reach", "Ecosystem", "Intent", "Cat. Fit"]
+            maxes  = [SCORING_WEIGHTS[k] for k in ["creator_reach", "creator_ecosystem", "content_intent", "category_fit"]]
+            vals   = [row[k] for k in ["creator_reach_score", "creator_ecosystem_score", "content_intent_score", "category_fit_score"]]
+            norm   = [v / mx if mx else 0 for v, mx in zip(vals, maxes)]
 
-            fig = go.Figure()
-            fig.add_trace(go.Scatterpolar(
-                r=normalized + [normalized[0]],
-                theta=dimensions + [dimensions[0]],
+            fig = go.Figure(go.Scatterpolar(
+                r=norm + [norm[0]],
+                theta=dims + [dims[0]],
                 fill="toself",
-                fillcolor="rgba(99, 102, 241, 0.2)",
+                fillcolor="rgba(99,102,241,0.12)",
                 line=dict(color="#6366f1", width=2),
-                name=selected_brand,
             ))
             fig.update_layout(
                 polar=dict(
-                    radialaxis=dict(visible=True, range=[0, 1], showticklabels=False),
+                    bgcolor="white",
+                    radialaxis=dict(visible=True, range=[0, 1], showticklabels=False,
+                                    gridcolor="#f1f5f9", linecolor="#f1f5f9"),
+                    angularaxis=dict(gridcolor="#f1f5f9", linecolor="#f1f5f9"),
                 ),
                 showlegend=False,
-                height=350,
-                margin=dict(t=30, b=30, l=60, r=60),
+                height=300,
+                margin=dict(t=16, b=16, l=48, r=48),
+                paper_bgcolor="rgba(0,0,0,0)",
+                font_family="Inter",
             )
-            st.plotly_chart(fig, width="stretch")
+            st.plotly_chart(fig, use_container_width=True)
 
-        with col_metrics:
-            st.markdown("**Key Metrics**")
-            m1, m2 = st.columns(2)
-            with m1:
-                st.metric("Total Videos", format_number(brand_row["total_videos"]))
-                st.metric("Total Views", format_number(brand_row["total_views"]))
-            with m2:
-                st.metric("Total Likes", format_number(brand_row["total_likes"]))
-                st.metric("Total Comments", format_number(brand_row["total_comments"]))
+        # Metrics
+        with right:
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-            st.markdown("**Sub-Scores**")
-            sub_data = {
-                "Dimension": ["Creator Reach", "Creator Ecosystem", "Content Intent", "Category Fit"],
-                "Score": [
-                    brand_row["creator_reach_score"],
-                    brand_row["creator_ecosystem_score"],
-                    brand_row["content_intent_score"],
-                    brand_row["category_fit_score"],
-                ],
-                "Max": [30, 25, 25, 20],
-            }
-            sub_df = pd.DataFrame(sub_data)
-            sub_df["% of Max"] = (sub_df["Score"] / sub_df["Max"] * 100).round(0).astype(int)
-            st.dataframe(sub_df, hide_index=True, width="stretch")
+            # Score bars
+            for label, val, mx in zip(
+                ["Reach", "Ecosystem", "Intent", "Category Fit"],
+                vals, maxes
+            ):
+                pct = val / mx if mx else 0
+                st.markdown(
+                    f'<div style="margin-bottom:12px">'
+                    f'<div style="display:flex;justify-content:space-between;margin-bottom:4px">'
+                    f'<span style="font-size:12px;color:#64748b;font-weight:500">{label}</span>'
+                    f'<span style="font-size:12px;font-weight:600;color:#0f172a">{val:.1f} <span style="color:#94a3b8;font-weight:400">/ {mx}</span></span>'
+                    f'</div>'
+                    f'<div style="background:#f1f5f9;border-radius:99px;height:6px">'
+                    f'<div style="background:#6366f1;border-radius:99px;height:6px;width:{pct*100:.0f}%"></div>'
+                    f'</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
 
-        # Per-platform breakdown
-        st.divider()
-        st.markdown("**Platform Breakdown**")
-        plat_cols = st.columns(1)
+            st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
 
-        for i, (platform, icon) in enumerate([
-            ("youtube", "▶️ YouTube"),
-        ]):
-            with plat_cols[i]:
-                m = brand_metrics.get(platform)
-                if m and m.get("data_source") != "unavailable":
-                    source = m.get("data_source", "sample")
-                    st.markdown(f"**{icon}** `{source}`")
-                    st.caption(f"Followers: {format_number(m.get('followers', 0))}")
-                    st.caption(f"Videos (90d): {m.get('shorts_last_90d', m.get('videos_last_90d', 0))}")
-                    st.caption(f"Total Views: {format_number(m.get('total_views', 0))}")
-                    st.caption(f"Avg Views: {format_number(m.get('avg_views', 0))}")
-                    st.caption(f"Avg Likes: {format_number(m.get('avg_likes', 0))}")
-                    er = m.get("engagement_rate", 0)
-                    st.caption(f"Eng. Rate: {engagement_rate_fmt(er)}")
-                else:
-                    st.markdown(f"**{icon}** `unavailable`")
-                    st.caption("No data collected")
+            # Raw stats
+            stat_cols = st.columns(3)
+            stat_cols[0].metric("Videos", format_number(row["total_videos"]))
+            stat_cols[1].metric("Views", format_number(row["total_views"]))
+            stat_cols[2].metric("Creators", int(row["unique_creators"]))
 
-        # Why Zelf blurb
-        st.divider()
-        st.markdown("**Why This Brand Needs Zelf**")
-        blurb = generate_why_zelf_blurb(selected_brand, brand_row.to_dict())
-        st.markdown(blurb)
+        # Why Zelf
+        st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
+        st.markdown(
+            f'<div style="background:#f8fafc;border-radius:10px;padding:18px 22px;border:1px solid #f1f5f9;font-size:14px;color:#374151;line-height:1.6">'
+            f'{generate_why_zelf_blurb(selected, row.to_dict())}'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
 
-# --- Footer ---
-st.divider()
-st.caption(
-    "Data: creator videos about each brand on YouTube (last 90 days) via yt-dlp — no API quota. "
-    "Scoring: Creator Reach (30pts) + Creator Ecosystem (25pts) + Content Intent (25pts) + Category Fit (20pts). "
-    "Intent gate: brands with zero review/purchase signals are capped at 60."
+# ── Footer ────────────────────────────────────────────────────────────────────
+st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
+st.markdown(
+    "<span style='color:#cbd5e1;font-size:12px'>"
+    "YouTube creator data via yt-dlp · last 90 days · "
+    "Scoring: Reach 30 + Ecosystem 25 + Intent 25 + Category Fit 20"
+    "</span>",
+    unsafe_allow_html=True,
 )
