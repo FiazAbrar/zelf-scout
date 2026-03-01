@@ -823,7 +823,8 @@ with tab_about:
 <div style="max-width:680px;margin:32px auto 0;font-size:15px;color:#374151;line-height:1.75">
 
 <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px">What this tool is</h2>
-<p style="color:#64748b;margin-top:0">A YouTube creator activity monitor for CPG brands. It searches YouTube for each brand, collects what it finds, and presents it plainly.</p>
+<p style="color:#64748b;margin-top:0">A YouTube video activity monitor for CPG brands. It searches YouTube for each brand, collects what it finds, and presents it plainly.</p>
+<p style="color:#64748b">This covers <strong>YouTube videos only</strong> — long-form reviews, hauls, routines. It does not cover TikTok, Instagram Reels, or YouTube Shorts as a distinct format. For many CPG brands today, a significant portion of organic creator activity happens on TikTok specifically. That data is not here.</p>
 
 <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
 
@@ -870,11 +871,11 @@ The percentage of video titles containing at least one of these words: <em>revie
 
 <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">What this tool cannot tell you</h2>
 <ul style="padding-left:20px;margin:0">
+<li style="margin-bottom:8px">Anything on TikTok, Instagram, or YouTube Shorts — this is YouTube long-form only</li>
+<li style="margin-bottom:8px">Total YouTube activity — we see at most 50 videos per brand per search</li>
 <li style="margin-bottom:8px">Whether any creator content is paid or organic</li>
-<li style="margin-bottom:8px">Total creator activity — we see at most 50 videos per brand</li>
 <li style="margin-bottom:8px">Whether the brand is already aware of or working with these creators</li>
 <li style="margin-bottom:8px">Whether viewers purchased anything</li>
-<li style="margin-bottom:8px">Anything about Instagram, TikTok, or any platform other than YouTube</li>
 <li style="margin-bottom:8px">Whether a brand is a good fit for Zelf — that is a sales judgement, not a data output</li>
 </ul>
 
