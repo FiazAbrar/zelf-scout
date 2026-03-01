@@ -558,6 +558,97 @@ with tab_detail:
 
             st.markdown(bars_html, unsafe_allow_html=True)
 
+        # ── Evidence trail ────────────────────────────────────────────────────
+        m_raw   = brand_platforms.get(selected, {}).get("youtube", {})
+        evidence = m_raw.get("evidence") or {}
+
+        if evidence:
+            with st.expander("Evidence trail — see what produced each signal"):
+                ev_cols = st.columns(2)
+
+                with ev_cols[0]:
+                    # Breakout video
+                    tv = evidence.get("top_video")
+                    if tv:
+                        st.markdown(
+                            f'<div style="margin-bottom:16px">'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Breakout video</div>'
+                            f'<div style="font-size:13px;color:#0f172a;font-weight:500;margin-bottom:2px">'
+                            f'<a href="{tv["url"]}" target="_blank" style="color:#6366f1;text-decoration:none">{tv["title"]}</a>'
+                            f'</div>'
+                            f'<div style="font-size:12px;color:#64748b">{tv["channel"]} · {format_number(tv["views"])} views</div>'
+                            f'<div style="font-size:11px;color:#94a3b8;margin-top:2px">'
+                            f'{format_number(tv["views"])} ÷ {format_number(m_raw.get("avg_views", 0))} avg = {row["breakout_ratio"]:.1f}× ratio'
+                            f'</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    # Top creators
+                    creators = evidence.get("top_creators") or []
+                    if creators:
+                        st.markdown(
+                            f'<div style="margin-bottom:16px">'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Creator channels sampled</div>'
+                            f'<div style="font-size:12px;color:#374151;line-height:1.8">'
+                            + "".join(
+                                f'<span style="background:#f1f5f9;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;display:inline-block;font-size:11px">{c}</span>'
+                                for c in creators
+                            )
+                            + f'{"&nbsp;<span style=\\'font-size:11px;color:#94a3b8\\'>+ more</span>" if row["unique_creators"] > len(creators) else ""}'
+                            + f'</div></div>',
+                            unsafe_allow_html=True,
+                        )
+
+                with ev_cols[1]:
+                    # Review-matched titles
+                    rtitles = evidence.get("sample_review_titles") or []
+                    n_review = int(row["review_intent_ratio"] * int(row["total_videos"]))
+                    if rtitles:
+                        items = "".join(
+                            f'<li style="margin-bottom:4px;color:#374151">{t}</li>'
+                            for t in rtitles
+                        )
+                        st.markdown(
+                            f'<div style="margin-bottom:16px">'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">'
+                            f'Review-keyword titles ({n_review} of {int(row["total_videos"])})'
+                            f'</div>'
+                            f'<ul style="margin:0;padding-left:16px;font-size:12px;line-height:1.6">{items}</ul>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            '<div style="font-size:12px;color:#94a3b8">No review-keyword titles found in this sample.</div>',
+                            unsafe_allow_html=True,
+                        )
+
+                    # Purchase-intent comments
+                    pcomments = evidence.get("sample_purchase_comments") or []
+                    n_comments = m_raw.get("total_comments", 0)
+                    if pcomments:
+                        items = "".join(
+                            f'<li style="margin-bottom:6px;color:#374151;font-style:italic">"{c}"</li>'
+                            for c in pcomments
+                        )
+                        st.markdown(
+                            f'<div>'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">'
+                            f'Purchase-intent comments (from top video)'
+                            f'</div>'
+                            f'<ul style="margin:0;padding-left:16px;font-size:12px;line-height:1.6">{items}</ul>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            '<div style="font-size:12px;color:#94a3b8">No purchase-intent comments found in sample.</div>',
+                            unsafe_allow_html=True,
+                        )
+        else:
+            st.caption("Evidence not available for this brand — refresh data to collect it.")
+
         # ── Raw stats ─────────────────────────────────────────────────────────
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         sc1, sc2, sc3, sc4 = st.columns(4)

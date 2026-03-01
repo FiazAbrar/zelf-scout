@@ -31,11 +31,15 @@ class PlatformMetrics:
     review_intent_ratio: float = 0.0   # fraction of titles with review/haul/routine keywords
     purchase_intent_score: float = 0.0 # fraction of top-video comments with purchase keywords
 
+    # --- Evidence: raw examples that produced each signal ---
+    # Stored so the UI can show *why* the score is what it is, not just the number.
+    evidence: Optional[dict] = None     # {top_video, top_creators, sample_review_titles, sample_purchase_comments}
+
     data_source: str = "unavailable"   # "live_api", "cache", "sample", "unavailable"
     error: Optional[str] = None
 
     def to_dict(self) -> dict:
-        return {
+        d = {
             "platform": self.platform,
             "brand_name": self.brand_name,
             "followers": self.followers,
@@ -57,6 +61,9 @@ class PlatformMetrics:
             "purchase_intent_score": self.purchase_intent_score,
             "data_source": self.data_source,
         }
+        if self.evidence:
+            d["evidence"] = self.evidence
+        return d
 
     @property
     def is_available(self) -> bool:

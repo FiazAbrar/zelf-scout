@@ -157,10 +157,12 @@ class YouTubeCollector:
         titles = [v["title"] for v in candidates]
         review_hits = sum(1 for t in titles if _REVIEW_RE.search(t))
         review_intent_ratio = round(review_hits / len(titles), 3) if titles else 0.0
+        sample_review_titles = [t for t in titles if _REVIEW_RE.search(t)][:5]
 
         # Sort by views; top-K go to full fetch
         candidates.sort(key=lambda v: v["view_count"], reverse=True)
         top = candidates[:YOUTUBE_FULL_FETCH_TOP_N]
+        top_creators = list(dict.fromkeys(v["channel"] for v in candidates if v["channel"]))[:6]
 
         # ------------------------------------------------------------------ #
         # Step 2: Full fetch top-K — get likes + comments                     #
@@ -188,6 +190,7 @@ class YouTubeCollector:
         # Step 3: Comment fetch on top-1 video — purchase intent analysis     #
         # ------------------------------------------------------------------ #
         purchase_intent_score = 0.0
+        sample_purchase_comments: list[str] = []
         if top:
             try:
                 with yt_dlp.YoutubeDL(_YDL_COMMENTS) as ydl:
@@ -196,13 +199,23 @@ class YouTubeCollector:
                     )
                 comments = comment_info.get("comments") or []
                 if comments:
-                    hits = sum(
-                        1 for c in comments
+                    matched = [
+                        c.get("text") or ""
+                        for c in comments
                         if _PURCHASE_RE.search(c.get("text") or "")
-                    )
-                    purchase_intent_score = round(hits / len(comments), 3)
+                    ]
+                    purchase_intent_score = round(len(matched) / len(comments), 3)
+                    sample_purchase_comments = [t[:200] for t in matched[:3]]
             except Exception as e:
                 logger.warning(f"Comment fetch failed for {top[0]['id']}: {e}")
+
+        top_video_evidence = {
+            "id":      top[0]["id"],
+            "title":   top[0]["title"],
+            "views":   top[0]["view_count"],
+            "channel": top[0].get("channel", ""),
+            "url":     f"https://youtu.be/{top[0]['id']}",
+        } if top else None
 
         metrics = PlatformMetrics(
             platform="youtube",
@@ -223,6 +236,12 @@ class YouTubeCollector:
             breakout_ratio=breakout_ratio,
             review_intent_ratio=review_intent_ratio,
             purchase_intent_score=purchase_intent_score,
+            evidence={
+                "top_video":                top_video_evidence,
+                "top_creators":             top_creators,
+                "sample_review_titles":     sample_review_titles,
+                "sample_purchase_comments": sample_purchase_comments,
+            },
         )
 
         self._save(brand_name, metrics)
