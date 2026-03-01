@@ -240,7 +240,7 @@ if uncollected_count:
         f'<div style="margin-top:16px;padding:10px 16px;background:#fafafa;border:1px solid #e2e8f0;'
         f'border-radius:8px;font-size:13px;color:#64748b">'
         f'<strong style="color:#0f172a">{uncollected_count} brands</strong> have no data yet '
-        f'and are excluded from scoring — click <strong>Refresh Data</strong> to collect them.'
+        f'and are excluded from scoring — run <code>python scripts/collect.py</code> to collect them.'
         f'</div>',
         unsafe_allow_html=True,
     )
@@ -248,7 +248,7 @@ if uncollected_count:
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_table, tab_explore, tab_detail = st.tabs(["Ranking", "Explore", "Brand Deep Dive"])
+tab_table, tab_explore, tab_detail, tab_raw = st.tabs(["Ranking", "Explore", "Brand Deep Dive", "Raw Data"])
 
 
 # ── Tab 1: Ranking ────────────────────────────────────────────────────────────
@@ -673,3 +673,152 @@ with tab_detail:
             f'</div>',
             unsafe_allow_html=True,
         )
+
+
+# ── Tab 4: Raw Data ───────────────────────────────────────────────────────────
+with tab_raw:
+    # Build raw metrics dataframe from brand_platforms
+    raw_rows = []
+    for _, r in filtered_df.iterrows():
+        m = brand_platforms.get(r["brand_name"], {}).get("youtube", {})
+        raw_rows.append({
+            "Brand":           r["brand_name"],
+            "Category":        r["category"],
+            "Videos":          int(m.get("videos_last_90d", 0)),
+            "Total Views":     int(m.get("total_views", 0)),
+            "Avg Views":       int(m.get("avg_views", 0)),
+            "Total Likes":     int(m.get("total_likes", 0)),
+            "Total Comments":  int(m.get("total_comments", 0)),
+            "Eng. Rate":       float(m.get("engagement_rate", 0.0)),
+            "Creators":        int(m.get("unique_creators", 0)),
+            "Breakout Ratio":  float(m.get("breakout_ratio", 0.0)),
+            "Review Intent %": round(float(m.get("review_intent_ratio", 0.0)) * 100, 1),
+            "Purchase Score":  float(m.get("purchase_intent_score", 0.0)),
+        })
+
+    raw_df = pd.DataFrame(raw_rows)
+
+    # ── Table ─────────────────────────────────────────────────────────────────
+    st.dataframe(
+        raw_df,
+        column_config={
+            "Total Views": st.column_config.NumberColumn(
+                "Total Views",
+                help="Sum of views across all creator videos in the last 90 days.",
+                format="%d",
+            ),
+            "Avg Views": st.column_config.NumberColumn(
+                "Avg Views",
+                help="Mean views per video. Used as the denominator in breakout ratio.",
+                format="%d",
+            ),
+            "Eng. Rate": st.column_config.NumberColumn(
+                "Eng. Rate",
+                help="(likes + comments) ÷ views on the top 5 videos.",
+                format="%.4f",
+            ),
+            "Breakout Ratio": st.column_config.NumberColumn(
+                "Breakout Ratio",
+                help="Top video views ÷ avg video views. Higher = one video going viral.",
+                format="%.1f",
+            ),
+            "Review Intent %": st.column_config.NumberColumn(
+                "Review Intent %",
+                help="% of video titles containing keywords: review, haul, routine, unboxing, honest, try, tested…",
+                format="%.1f",
+            ),
+            "Purchase Score": st.column_config.NumberColumn(
+                "Purchase Score",
+                help="Fraction of comments on the top video containing purchase language: bought, ordered, need this, use code…",
+                format="%.3f",
+            ),
+        },
+        height=480,
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
+
+    # ── Charts ────────────────────────────────────────────────────────────────
+    ca, cb = st.columns(2)
+
+    with ca:
+        st.markdown("**Views vs. Creator Count**")
+        st.caption("Raw reach signal — how much view volume per creator")
+        fig = px.scatter(
+            raw_df,
+            x="Creators",
+            y="Total Views",
+            color="Category",
+            hover_name="Brand",
+            hover_data={"Total Views": True, "Creators": True,
+                        "Breakout Ratio": ":.1f", "Category": False},
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+            log_y=True,
+        )
+        fig.update_layout(
+            **PLOTLY_LAYOUT,
+            xaxis_title="Unique Creators",
+            yaxis_title="Total Views (log scale)",
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                        font=dict(size=11)),
+            height=340,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    with cb:
+        st.markdown("**Review Intent vs. Purchase Score**")
+        st.caption("Intent signal — what % of titles are review-driven vs. comment buy-language")
+        fig = px.scatter(
+            raw_df,
+            x="Review Intent %",
+            y="Purchase Score",
+            color="Category",
+            hover_name="Brand",
+            size="Creators",
+            size_max=28,
+            color_discrete_sequence=px.colors.qualitative.Pastel,
+        )
+        fig.update_layout(
+            **PLOTLY_LAYOUT,
+            xaxis_title="Review Intent %",
+            yaxis_title="Purchase Score",
+            showlegend=False,
+            height=340,
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Breakout ratio bar
+    st.markdown("**Breakout Ratio by Brand**")
+    st.caption("Top video ÷ avg views — measures viral potential within a brand's creator content")
+    br_sorted = raw_df.sort_values("Breakout Ratio", ascending=True)
+    fig = go.Figure(go.Bar(
+        x=br_sorted["Breakout Ratio"],
+        y=br_sorted["Brand"],
+        orientation="h",
+        marker_color=[
+            "#6366f1" if v >= 10 else "#a5b4fc" if v >= 4 else "#e2e8f0"
+            for v in br_sorted["Breakout Ratio"]
+        ],
+        text=br_sorted["Breakout Ratio"].apply(lambda v: f"{v:.1f}×"),
+        textposition="outside",
+        textfont=dict(size=10, color="#64748b"),
+        hovertemplate="%{y}: %{x:.1f}×<extra></extra>",
+    ))
+    fig.update_layout(
+        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
+        yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=11)),
+        height=max(320, len(br_sorted) * 22),
+        margin=dict(t=16, b=16, l=120, r=60),
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Download
+    st.download_button(
+        "Export Raw Data CSV",
+        raw_df.to_csv(index=False),
+        "zelf_raw_metrics.csv",
+        "text/csv",
+    )
