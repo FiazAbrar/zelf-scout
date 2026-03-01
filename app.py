@@ -28,44 +28,36 @@ st.set_page_config(
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-
 section[data-testid="stSidebar"] { border-right: 1px solid #f1f5f9; }
-
 div[data-testid="stMetric"] {
-    background: transparent;
-    border: none;
-    border-left: 3px solid #6366f1;
-    padding: 8px 16px;
+    background: transparent; border: none;
+    border-left: 3px solid #6366f1; padding: 8px 16px;
 }
 div[data-testid="stMetricLabel"] > div {
     color: #94a3b8; font-size: 11px; font-weight: 600;
     letter-spacing: .06em; text-transform: uppercase;
 }
 div[data-testid="stMetricValue"] > div { color: #0f172a; font-size: 26px; font-weight: 700; }
-
 button[data-baseweb="tab"] { font-size: 13px; font-weight: 500; color: #64748b; }
 button[data-baseweb="tab"][aria-selected="true"] { color: #6366f1; border-bottom-color: #6366f1; }
-
 div[data-testid="stButton"] > button {
     background: #6366f1; color: white; border: none;
     font-weight: 500; border-radius: 6px; padding: .4rem 1rem;
 }
 div[data-testid="stButton"] > button:hover { background: #4f46e5; }
-
 div[data-testid="stDownloadButton"] > button {
     background: transparent; color: #6366f1;
-    border: 1px solid #6366f1; font-weight: 500; border-radius: 6px;
+    border: 1px solid #e2e8f0; font-weight: 500; border-radius: 6px;
 }
-
+/* Expander */
+details summary { font-size: 12px; color: #94a3b8; font-weight: 500; }
+.score-display { text-align: center; }
+.score-display .score-num { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -2px; }
+.score-display .score-label { font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: .1em; margin-top: 4px; }
 .tier-hot  { display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#ecfdf5;color:#059669; }
 .tier-warm { display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#fffbeb;color:#d97706; }
 .tier-low  { display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;background:#f8fafc;color:#94a3b8; }
-
-.score-display { text-align:center; }
-.score-display .score-num { font-size:52px;font-weight:700;line-height:1;letter-spacing:-2px; }
-.score-display .score-label { font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.1em;margin-top:4px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -144,13 +136,22 @@ def score_all_brands() -> pd.DataFrame:
 
 
 def _md(text: str) -> str:
-    """Convert **bold** markdown to HTML and split paragraphs."""
+    """Convert **bold** markdown to HTML paragraphs."""
     text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
     paras = [p.strip() for p in text.split('\n\n') if p.strip()]
     return ''.join(
         f'<p style="margin:0 0 12px;line-height:1.65;color:#374151">{p}</p>'
         for p in paras
     )
+
+
+def _quality(pct: float) -> tuple[str, str]:
+    """Return (label, color) for a score percentage."""
+    if pct >= 0.80: return "exceptional", "#059669"
+    if pct >= 0.60: return "strong",      "#10b981"
+    if pct >= 0.40: return "moderate",    "#d97706"
+    if pct >= 0.20: return "weak",        "#f97316"
+    return "minimal", "#94a3b8"
 
 
 # ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -177,7 +178,7 @@ if st.sidebar.button("Refresh Data", use_container_width=True):
     st.cache_data.clear()
     st.rerun()
 
-# ── Data ──────────────────────────────────────────────────────────────────────
+# ── Data + filters ────────────────────────────────────────────────────────────
 scores_df = score_all_brands()
 
 if scores_df.empty:
@@ -186,7 +187,6 @@ if scores_df.empty:
 
 brands_df, brand_platforms = load_all_data()
 
-# ── Filters ───────────────────────────────────────────────────────────────────
 st.sidebar.divider()
 st.sidebar.markdown(
     "<span style='font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em'>Filters</span>",
@@ -212,72 +212,38 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Scoring methodology strip ─────────────────────────────────────────────────
-st.markdown("""
-<div style="display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin:20px 0 4px">
+# Methodology expander — collapsed by default, clean when opened
+with st.expander("How scores are computed"):
+    st.markdown("""
+**Score = Creator Reach (30) + Ecosystem (25) + Content Intent (25) + Category Fit (20)**
 
-  <div style="padding:16px 20px;border-right:1px solid #e2e8f0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#0f172a;text-transform:uppercase">Creator Reach</span>
-      <span style="background:#ede9fe;color:#6366f1;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;letter-spacing:.04em">30 PTS</span>
-    </div>
-    <div style="font-size:12px;color:#64748b;line-height:1.55;margin-bottom:8px">
-      Total views on creator content over the last 90 days
-    </div>
-    <div style="font-size:10px;color:#94a3b8;font-style:italic">Percentile rank vs. all brands</div>
-  </div>
+| | Weight | Method | Signal |
+|---|---|---|---|
+| **Creator Reach** | 30 pts | Percentile vs. cohort | Total views on creator content · 90 days |
+| **Ecosystem** | 25 pts | Percentile + log bonus | Unique creators + breakout ratio (top video ÷ avg) |
+| **Content Intent** | 25 pts | Absolute (not relative) | 60% review-keyword titles + 40% purchase language in comments |
+| **Category Fit** | 20 pts | Fixed multiplier | Beauty / Food / Personal Care → 20 · Beverage → 16 · Household → 12 · Pet → 8 |
 
-  <div style="padding:16px 20px;border-right:1px solid #e2e8f0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#0f172a;text-transform:uppercase">Ecosystem</span>
-      <span style="background:#ede9fe;color:#6366f1;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;letter-spacing:.04em">25 PTS</span>
-    </div>
-    <div style="font-size:12px;color:#64748b;line-height:1.55;margin-bottom:8px">
-      Unique creator count + viral breakout potential
-    </div>
-    <div style="font-size:10px;color:#94a3b8;font-style:italic">Percentile + log-scaled breakout bonus</div>
-  </div>
+**Intent gate:** if a brand has zero review *and* purchase signals, total score is capped at 60 — high view volume alone isn't enough.
+**Data:** YouTube · collected via yt-dlp (no API key) · brand's own channel excluded
+""")
 
-  <div style="padding:16px 20px;border-right:1px solid #e2e8f0">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#0f172a;text-transform:uppercase">Content Intent</span>
-      <span style="background:#ede9fe;color:#6366f1;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;letter-spacing:.04em">25 PTS</span>
-    </div>
-    <div style="font-size:12px;color:#64748b;line-height:1.55;margin-bottom:8px">
-      Review / haul keywords in titles + buy language in comments
-    </div>
-    <div style="font-size:10px;color:#94a3b8;font-style:italic">Absolute signal · not relative to cohort</div>
-  </div>
-
-  <div style="padding:16px 20px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-      <span style="font-size:10px;font-weight:700;letter-spacing:.1em;color:#0f172a;text-transform:uppercase">Category Fit</span>
-      <span style="background:#ede9fe;color:#6366f1;font-size:9px;font-weight:700;padding:1px 7px;border-radius:99px;letter-spacing:.04em">20 PTS</span>
-    </div>
-    <div style="font-size:12px;color:#64748b;line-height:1.55;margin-bottom:8px">
-      Static Zelf ICP alignment — Beauty &amp; Food score full points
-    </div>
-    <div style="font-size:10px;color:#94a3b8;font-style:italic">Fixed multiplier by category type</div>
-  </div>
-
-</div>
-<div style="font-size:11px;color:#cbd5e1;margin-bottom:24px;padding-left:2px">
-  Source: YouTube · collected via yt-dlp (no API key) · 90-day window ·
-  brands with zero intent signals are capped at 60
-</div>
-""", unsafe_allow_html=True)
+st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
 # ── Summary strip ─────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
-hot  = filtered_df[filtered_df["icp_score"] >= 70]
-warm = filtered_df[(filtered_df["icp_score"] >= 40) & (filtered_df["icp_score"] < 70)]
-avg  = filtered_df["icp_score"].mean() if len(filtered_df) else 0
+hot     = filtered_df[filtered_df["icp_score"] >= 70]
+avg     = filtered_df["icp_score"].mean() if len(filtered_df) else 0
 top_cat = filtered_df.groupby("category")["icp_score"].mean().idxmax() if len(filtered_df) else "—"
 
-c1.metric("Brands", len(filtered_df))
-c2.metric("Hot Leads", len(hot))
-c3.metric("Avg Score", f"{avg:.0f}")
-c4.metric("Top Category", top_cat)
+c1.metric("Brands", len(filtered_df),
+          help="Total brands with YouTube data collected in the current filter.")
+c2.metric("Hot Leads", len(hot),
+          help="Brands scoring ≥ 70 — strong ICP fit with meaningful creator activity.")
+c3.metric("Avg Score", f"{avg:.0f}",
+          help="Mean ICP score across all filtered brands.")
+c4.metric("Top Category", top_cat,
+          help="Category with the highest average ICP score.")
 
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
@@ -290,54 +256,75 @@ with tab_table:
     rows = []
     for _, r in filtered_df.iterrows():
         rows.append({
-            "#": int(r["rank"]),
-            "Brand": r["brand_name"],
-            "Category": r["category"],
-            "Score": r["icp_score"],
-            "Reach": r["creator_reach_score"],
-            "Ecosystem": r["creator_ecosystem_score"],
-            "Intent": r["content_intent_score"],
-            "Cat. Fit": r["category_fit_score"],
-            "Creators": int(r["unique_creators"]),
-            "Views": r["total_views"],
+            "#":         int(r["rank"]),
+            "Brand":     r["brand_name"],
+            "Category":  r["category"],
+            "Score":     float(r["icp_score"]),
+            "Reach":     float(r["creator_reach_score"]),
+            "Ecosystem": float(r["creator_ecosystem_score"]),
+            "Intent":    float(r["content_intent_score"]),
+            "Cat. Fit":  float(r["category_fit_score"]),
+            "Creators":  int(r["unique_creators"]),
+            "Views":     int(r["total_views"]),
         })
 
     disp = pd.DataFrame(rows)
 
-    def _shade_score(val):
-        if val >= 70: return "color:#059669;font-weight:700"
-        if val >= 40: return "color:#d97706;font-weight:700"
-        return "color:#94a3b8;font-weight:600"
-
-    styled = (
-        disp.style
-        .applymap(_shade_score, subset=["Score"])
-        .format({
-            "Score": "{:.1f}", "Reach": "{:.1f}", "Ecosystem": "{:.1f}",
-            "Intent": "{:.1f}", "Cat. Fit": "{:.1f}",
-            "Views": lambda x: format_number(x),
-        })
-        .set_properties(**{"font-size": "13px"})
-        .set_table_styles([
-            {"selector": "thead th", "props": [
-                ("font-size", "10px"), ("font-weight", "700"),
-                ("color", "#94a3b8"), ("text-transform", "uppercase"),
-                ("letter-spacing", ".07em"), ("border-bottom", "2px solid #e2e8f0"),
-            ]},
-            {"selector": "tbody tr:hover", "props": [("background-color", "#f8fafc")]},
-            {"selector": "td", "props": [
-                ("border-bottom", "1px solid #f8fafc"), ("padding", "8px 12px"),
-            ]},
-        ])
+    st.dataframe(
+        disp,
+        column_config={
+            "Score": st.column_config.ProgressColumn(
+                "Score",
+                help="ICP Readiness Score (0–100)\n\n≥ 70 → Hot Lead\n≥ 40 → Warm Lead\n< 40 → Low Priority",
+                min_value=0,
+                max_value=100,
+                format="%.1f",
+            ),
+            "Reach": st.column_config.NumberColumn(
+                "Reach",
+                help="Creator Reach · max 30 pts\n\nTotal views on creator content over 90 days, "
+                     "converted to a percentile score vs. all brands in the cohort.",
+                format="%.1f",
+            ),
+            "Ecosystem": st.column_config.NumberColumn(
+                "Ecosystem",
+                help="Creator Ecosystem · max 25 pts\n\nUnique creators posting about the brand "
+                     "(percentile) plus a log-scaled bonus for viral breakout potential "
+                     "(top video ÷ average views).",
+                format="%.1f",
+            ),
+            "Intent": st.column_config.NumberColumn(
+                "Content Intent",
+                help="Content Intent · max 25 pts\n\nAbsolute score — not relative to peers.\n"
+                     "60% from % of video titles containing review/haul keywords.\n"
+                     "40% from purchase language density in comments.\n\n"
+                     "Zero on both = total score capped at 60.",
+                format="%.1f",
+            ),
+            "Cat. Fit": st.column_config.NumberColumn(
+                "Category Fit",
+                help="Category Fit · max 20 pts\n\nFixed Zelf ICP multiplier by category:\n"
+                     "Beauty / Food / Personal Care → 20 pts (1.0×)\n"
+                     "Beverage → 16 pts (0.8×)\n"
+                     "Household → 12 pts (0.6×)\n"
+                     "Pet Care → 8 pts (0.4×)",
+                format="%.1f",
+            ),
+            "Creators": st.column_config.NumberColumn(
+                "Creators",
+                help="Unique creator channels that posted about this brand in the last 90 days. "
+                     "The brand's own channel is excluded.",
+            ),
+            "Views": st.column_config.NumberColumn(
+                "Views",
+                help="Total views across all creator videos mentioning the brand in the last 90 days.",
+                format="%d",
+            ),
+        },
+        height=560,
+        hide_index=True,
+        use_container_width=True,
     )
-
-    st.markdown(
-        "<div style='font-size:11px;color:#94a3b8;margin-bottom:8px'>"
-        "Reach · Ecosystem · Intent · Cat. Fit are sub-scores out of 30 · 25 · 25 · 20"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-    st.dataframe(styled, height=560, hide_index=True, use_container_width=True)
 
     csv = disp.to_csv(index=False)
     st.download_button("Export CSV", csv, "zelf_icp_scores.csv", "text/csv")
@@ -349,7 +336,7 @@ with tab_explore:
 
     with col_left:
         st.markdown("**Opportunity Matrix**")
-        st.caption("Reach vs. intent — top-right quadrant = highest priority. Bubble size = creator count.")
+        st.caption("Hover a bubble for details · size = creator count · dashed lines = median")
 
         fig = px.scatter(
             filtered_df,
@@ -358,8 +345,12 @@ with tab_explore:
             size="unique_creators",
             color="category",
             hover_name="brand_name",
-            hover_data={"icp_score": ":.1f", "unique_creators": True,
-                        "creator_reach_score": False, "content_intent_score": False},
+            hover_data={
+                "icp_score": ":.1f",
+                "unique_creators": True,
+                "creator_reach_score": False,
+                "content_intent_score": False,
+            },
             size_max=36,
             color_discrete_sequence=px.colors.qualitative.Pastel,
         )
@@ -369,7 +360,8 @@ with tab_explore:
                       line_dash="dot", line_color="#e2e8f0", line_width=1)
         fig.update_layout(
             **PLOTLY_LAYOUT,
-            xaxis_title="Creator Reach Score", yaxis_title="Content Intent Score",
+            xaxis_title="Creator Reach Score",
+            yaxis_title="Content Intent Score",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
                         font=dict(size=11)),
             height=380,
@@ -377,8 +369,8 @@ with tab_explore:
         st.plotly_chart(fig, use_container_width=True)
 
     with col_right:
-        st.markdown("**Top 15 Brands by ICP Score**")
-        st.caption("Green = Hot Lead (≥70) · Indigo = Warm (≥40) · Gray = Low Priority")
+        st.markdown("**Top 15 by ICP Score**")
+        st.caption("Green ≥ 70 · Indigo ≥ 40 · Gray < 40")
 
         top15 = filtered_df.head(15).sort_values("icp_score")
         fig = go.Figure(go.Bar(
@@ -392,10 +384,11 @@ with tab_explore:
             text=top15["icp_score"].round(1),
             textposition="outside",
             textfont=dict(size=11, color="#64748b"),
+            hovertemplate="%{y}: %{x:.1f}<extra></extra>",
         ))
         fig.update_layout(
             **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
-            xaxis=dict(range=[0, 105], showgrid=False, showticklabels=False, zeroline=False),
+            xaxis=dict(range=[0, 108], showgrid=False, showticklabels=False, zeroline=False),
             yaxis=dict(showgrid=False, zeroline=False),
             height=420,
         )
@@ -417,10 +410,11 @@ with tab_explore:
         text=cat_avg.apply(lambda r: f"{r['mean']:.0f}  ({int(r['count'])} brands)", axis=1),
         textposition="outside",
         textfont=dict(size=11, color="#64748b"),
+        hovertemplate="%{y}: %{x:.1f}<extra></extra>",
     ))
     fig.update_layout(
         **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
-        xaxis=dict(range=[0, 105], showgrid=False, showticklabels=False, zeroline=False),
+        xaxis=dict(range=[0, 108], showgrid=False, showticklabels=False, zeroline=False),
         yaxis=dict(showgrid=False, zeroline=False),
         height=280,
     )
@@ -435,16 +429,15 @@ with tab_detail:
     if selected:
         row  = filtered_df[filtered_df["brand_name"] == selected].iloc[0]
         tier = score_tier(row["icp_score"])
-        n_brands = len(scores_df)
 
         # ── Header ────────────────────────────────────────────────────────────
         hcol, scol = st.columns([5, 1])
         with hcol:
             st.markdown(f"### {selected}")
             tier_class = (
-                "tier-hot" if row["icp_score"] >= 70
-                else "tier-warm" if row["icp_score"] >= 40
-                else "tier-low"
+                "tier-hot"  if row["icp_score"] >= 70 else
+                "tier-warm" if row["icp_score"] >= 40 else
+                "tier-low"
             )
             st.markdown(
                 f'<span class="{tier_class}">{tier}</span>'
@@ -462,11 +455,10 @@ with tab_detail:
             )
 
         # Intent gate notice
-        intent_absent = row["review_intent_ratio"] == 0 and row["purchase_intent_score"] == 0
-        if intent_absent:
+        if row["review_intent_ratio"] == 0 and row["purchase_intent_score"] == 0:
             st.markdown(
                 '<div style="background:#fef9c3;border:1px solid #fde68a;border-radius:6px;'
-                'padding:8px 14px;font-size:12px;color:#92400e;margin:8px 0">'
+                'padding:8px 14px;font-size:12px;color:#92400e;margin:10px 0">'
                 '⚑ Intent gate applied — no creator intent signals detected; score capped at 60'
                 '</div>',
                 unsafe_allow_html=True,
@@ -476,7 +468,7 @@ with tab_detail:
 
         left, right = st.columns([1, 1])
 
-        # ── Radar chart ───────────────────────────────────────────────────────
+        # ── Radar ─────────────────────────────────────────────────────────────
         with left:
             dims  = ["Reach", "Ecosystem", "Intent", "Cat. Fit"]
             maxes = [SCORING_WEIGHTS[k] for k in
@@ -496,21 +488,18 @@ with tab_detail:
             fig.update_layout(
                 polar=dict(
                     bgcolor="white",
-                    radialaxis=dict(
-                        visible=True, range=[0, 1],
-                        showticklabels=False, gridcolor="#f1f5f9", linecolor="#f1f5f9",
-                    ),
+                    radialaxis=dict(visible=True, range=[0, 1], showticklabels=False,
+                                    gridcolor="#f1f5f9", linecolor="#f1f5f9"),
                     angularaxis=dict(gridcolor="#f1f5f9", linecolor="#f1f5f9"),
                 ),
-                showlegend=False,
-                height=300,
+                showlegend=False, height=300,
                 margin=dict(t=16, b=16, l=48, r=48),
                 paper_bgcolor="rgba(0,0,0,0)",
                 font_family="Inter",
             )
             st.plotly_chart(fig, use_container_width=True)
 
-        # ── Score bars with raw signals ───────────────────────────────────────
+        # ── Score bars with contextual quality labels ─────────────────────────
         with right:
             st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
 
@@ -520,52 +509,48 @@ with tab_detail:
                 (
                     "Creator Reach",
                     "creator_reach_score", "creator_reach",
-                    f"{format_number(int(row['total_views']))} total views · "
-                    f"{int(row['total_videos'])} videos found",
-                    "percentile rank vs. all brands in cohort",
+                    f"{format_number(int(row['total_views']))} views · {int(row['total_videos'])} videos",
                 ),
                 (
                     "Ecosystem",
                     "creator_ecosystem_score", "creator_ecosystem",
-                    f"{int(row['unique_creators'])} unique creators · "
-                    f"{row['breakout_ratio']:.1f}× breakout ratio",
-                    "percentile + log-scaled viral bonus (max +5 pts)",
+                    f"{int(row['unique_creators'])} creators · {row['breakout_ratio']:.1f}× breakout",
                 ),
                 (
                     "Content Intent",
                     "content_intent_score", "content_intent",
-                    f"{row['review_intent_ratio']*100:.0f}% review-titled videos · "
+                    f"{row['review_intent_ratio']*100:.0f}% review titles · "
                     f"{row['purchase_intent_score']:.2f} purchase score",
-                    "absolute · 60% title weight + 40% comment weight",
                 ),
                 (
                     "Category Fit",
                     "category_fit_score", "category_fit",
-                    f"{row['category']} · {fit_mult:.1f}× ICP multiplier",
-                    "fixed weight · Beauty / Food / Personal Care = full score",
+                    f"{row['category']} · {fit_mult:.1f}× multiplier",
                 ),
             ]
 
             bars_html = ""
-            for label, score_col, weight_key, signal, method in dim_configs:
+            for label, score_col, weight_key, signal in dim_configs:
                 val = row[score_col]
                 mx  = SCORING_WEIGHTS[weight_key]
                 pct = val / mx if mx else 0
+                q_label, q_color = _quality(pct)
                 bar_color = (
                     "#6366f1" if pct > 0.65
                     else "#a5b4fc" if pct > 0.35
                     else "#e2e8f0"
                 )
                 bars_html += f"""
-<div style="margin-bottom:18px">
-  <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+<div style="margin-bottom:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
     <span style="font-size:10px;font-weight:700;color:#374151;letter-spacing:.08em;text-transform:uppercase">{label}</span>
-    <span style="font-size:13px;font-weight:700;color:#0f172a">{val:.1f}
-      <span style="color:#cbd5e1;font-weight:400;font-size:11px"> / {mx}</span>
+    <span>
+      <span style="font-size:11px;font-weight:600;color:{q_color};margin-right:8px">{q_label}</span>
+      <span style="font-size:13px;font-weight:700;color:#0f172a">{val:.1f}</span>
+      <span style="font-size:11px;color:#cbd5e1"> / {mx}</span>
     </span>
   </div>
-  <div style="font-size:11px;color:#64748b;margin-bottom:3px">{signal}</div>
-  <div style="font-size:10px;color:#94a3b8;font-style:italic;margin-bottom:7px">{method}</div>
+  <div style="font-size:11px;color:#94a3b8;margin-bottom:6px">{signal}</div>
   <div style="background:#f1f5f9;border-radius:99px;height:4px">
     <div style="background:{bar_color};border-radius:99px;height:4px;width:{pct*100:.0f}%"></div>
   </div>
@@ -576,12 +561,16 @@ with tab_detail:
         # ── Raw stats ─────────────────────────────────────────────────────────
         st.markdown("<div style='height:4px'></div>", unsafe_allow_html=True)
         sc1, sc2, sc3, sc4 = st.columns(4)
-        sc1.metric("Videos Found", format_number(row["total_videos"]))
-        sc2.metric("Total Views", format_number(row["total_views"]))
-        sc3.metric("Unique Creators", int(row["unique_creators"]))
-        sc4.metric("Breakout Ratio", f"{row['breakout_ratio']:.1f}×")
+        sc1.metric("Videos Found",     format_number(row["total_videos"]),
+                   help="Total YouTube videos found mentioning this brand in the last 90 days.")
+        sc2.metric("Total Views",      format_number(row["total_views"]),
+                   help="Sum of views across all creator videos. Drives the Creator Reach score.")
+        sc3.metric("Unique Creators",  int(row["unique_creators"]),
+                   help="Distinct creator channels that posted about this brand. Brand's own channel excluded.")
+        sc4.metric("Breakout Ratio",   f"{row['breakout_ratio']:.1f}×",
+                   help="Top video views ÷ average video views. A high ratio means one video is going viral.")
 
-        # ── Why Zelf ──────────────────────────────────────────────────────────
+        # ── Sales Signal ──────────────────────────────────────────────────────
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
         blurb_html = _md(generate_why_zelf_blurb(selected, row.to_dict()))
         st.markdown(
@@ -593,13 +582,3 @@ with tab_detail:
             f'</div>',
             unsafe_allow_html=True,
         )
-
-# ── Footer ─────────────────────────────────────────────────────────────────────
-st.markdown("<div style='height:32px'></div>", unsafe_allow_html=True)
-st.markdown(
-    "<span style='color:#cbd5e1;font-size:11px'>"
-    "YouTube · yt-dlp · 90-day lookback · "
-    "Scoring: Reach 30 + Ecosystem 25 + Intent 25 + Category Fit 20 = 100 pts"
-    "</span>",
-    unsafe_allow_html=True,
-)
