@@ -21,14 +21,14 @@ st.set_page_config(
     page_title="Zelf ICP Scorer",
     page_icon="⬡",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
-section[data-testid="stSidebar"] { border-right: 1px solid #f1f5f9; }
+section[data-testid="stSidebar"] { display: none; }
 div[data-testid="stMetric"] {
     background: transparent; border: none;
     border-left: 3px solid #6366f1; padding: 8px 16px;
@@ -152,46 +152,16 @@ def _quality(pct: float) -> tuple[str, str]:
     return "minimal", "#94a3b8"
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
-st.sidebar.markdown("## Zelf ICP Scorer")
-st.sidebar.markdown(
-    "<span style='color:#94a3b8;font-size:13px'>CPG creator buzz → ranked leads</span>",
-    unsafe_allow_html=True,
-)
-st.sidebar.divider()
-
-freshness = get_data_freshness()
-sources   = get_data_sources_summary()
-if freshness:
-    st.sidebar.caption(f"Updated {freshness[:10]}  ·  {sum(sources.values())} brands")
-    st.sidebar.caption("To refresh: `python scripts/collect.py`")
-else:
-    st.sidebar.caption("No data — run `python scripts/collect.py`")
-
-# ── Data + filters ────────────────────────────────────────────────────────────
+# ── Data ──────────────────────────────────────────────────────────────────────
 scores_df, uncollected_count = score_all_brands()
 
 if scores_df.empty:
-    st.info("No data yet — click **Refresh Data** in the sidebar.")
+    st.info("No data yet — run `python scripts/collect.py` to collect it.")
     st.stop()
 
 brands_df, brand_platforms = load_all_data()
-
-st.sidebar.divider()
-st.sidebar.markdown(
-    "<span style='font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.06em'>Filters</span>",
-    unsafe_allow_html=True,
-)
-categories = sorted(scores_df["category"].unique())
-selected_categories = st.sidebar.multiselect(
-    "Category", categories, default=categories, label_visibility="collapsed"
-)
-score_range = st.sidebar.slider("ICP Score", 0, 100, (0, 100))
-
-filtered_df = scores_df[
-    scores_df["category"].isin(selected_categories) &
-    scores_df["icp_score"].between(score_range[0], score_range[1])
-].copy()
+freshness = get_data_freshness()
+sources   = get_data_sources_summary()
 
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown("# ICP Lead Scorer")
@@ -201,6 +171,29 @@ st.markdown(
     "</span>",
     unsafe_allow_html=True,
 )
+
+# ── Inline filters ────────────────────────────────────────────────────────────
+fa, fb, fc = st.columns([3, 2, 1])
+categories = sorted(scores_df["category"].unique())
+with fa:
+    selected_categories = st.multiselect(
+        "Category", categories, default=categories, label_visibility="collapsed",
+        placeholder="All categories",
+    )
+with fb:
+    score_range = st.slider("ICP Score", 0, 100, (0, 100), label_visibility="collapsed")
+with fc:
+    st.markdown(
+        f'<div style="padding-top:8px;font-size:11px;color:#94a3b8;text-align:right">'
+        f'{"Updated " + freshness[:10] if freshness else "No data"}'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+filtered_df = scores_df[
+    scores_df["category"].isin(selected_categories) &
+    scores_df["icp_score"].between(score_range[0], score_range[1])
+].copy()
 
 # Methodology expander — collapsed by default, clean when opened
 with st.expander("How scores are computed"):
@@ -807,7 +800,7 @@ with tab_raw:
         hovertemplate="%{y}: %{x:.1f}×<extra></extra>",
     ))
     fig.update_layout(
-        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis")},
+        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis", "margin")},
         xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
         yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=11)),
         height=max(320, len(br_sorted) * 22),
