@@ -241,7 +241,7 @@ if uncollected_count:
 st.markdown("<div style='height:20px'></div>", unsafe_allow_html=True)
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_table, tab_explore, tab_detail, tab_raw = st.tabs(["Ranking", "Explore", "Brand Deep Dive", "Raw Data"])
+tab_table, tab_explore, tab_detail, tab_raw, tab_about = st.tabs(["Ranking", "Explore", "Brand Deep Dive", "Raw Data", "About"])
 
 
 # ── Tab 1: Ranking ────────────────────────────────────────────────────────────
@@ -815,3 +815,60 @@ with tab_raw:
         "zelf_raw_metrics.csv",
         "text/csv",
     )
+
+
+# ── Tab 5: About ──────────────────────────────────────────────────────────────
+with tab_about:
+    st.markdown("""
+<div style="max-width:680px;margin:32px auto 0;font-size:15px;color:#374151;line-height:1.75">
+
+<h2 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:4px">What this tool is</h2>
+<p style="color:#64748b;margin-top:0">A YouTube creator activity monitor for CPG brands. It searches YouTube for each brand, collects what it finds, and presents it plainly.</p>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
+<h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How we collect data</h2>
+<p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The query is literally <code style="background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:13px">ytsearch50:[brand name]</code>.</p>
+<p>We take the first <strong>50 results</strong> published within the last <strong>90 days</strong>. We exclude any video uploaded by the brand's own channel (matched by channel name).</p>
+<p>For the <strong>top 5 videos by view count</strong> we make a second request to get like and comment counts.</p>
+<p>That is the entirety of our data collection.</p>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
+<h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">The four numbers we compute</h2>
+
+<p><strong>Unique creators</strong><br>
+The number of distinct channel names in our 50-result sample. If two videos came from the same channel, they count as one creator. This is a lower-bound estimate — we are only seeing 50 results.</p>
+
+<p><strong>Total views</strong><br>
+The sum of view counts across all collected videos. For large brands this dramatically undercounts reality. For smaller brands it is more representative.</p>
+
+<p><strong>Consideration rate</strong><br>
+The percentage of video titles containing at least one of these words: <em>review, haul, routine, unboxing, unbox, try, tried, testing, tested, honest, worth it, first impression, reaction, comparison, vs</em>. This tells you whether creators are actively evaluating the brand versus casually mentioning it. It is a keyword match on the title — nothing more.</p>
+
+<p><strong>Engagement rate</strong><br>
+(likes + comments) ÷ views, computed only on the top 5 videos by view count. This is not the engagement rate across all creator content — it is specifically the top 5. High-view videos tend to have lower engagement rates because they reach beyond a creator's core audience, so this number skews low.</p>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
+<h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">What the ranking is</h2>
+<p>Brands are ranked by an ICP score. That score is a weighted combination of the four numbers above, normalised within the current cohort. The weights are not validated against any outcome — they reflect a prior that creator count and reach matter more than content type or engagement. Treat the score as a sort order, not a prediction.</p>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
+<h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">What this tool cannot tell you</h2>
+<ul style="padding-left:20px;margin:0">
+<li style="margin-bottom:8px">Whether any creator content is paid or organic</li>
+<li style="margin-bottom:8px">Total creator activity — we see at most 50 videos per brand</li>
+<li style="margin-bottom:8px">Whether the brand is already aware of or working with these creators</li>
+<li style="margin-bottom:8px">Whether viewers purchased anything</li>
+<li style="margin-bottom:8px">Anything about Instagram, TikTok, or any platform other than YouTube</li>
+<li style="margin-bottom:8px">Whether a brand is a good fit for Zelf — that is a sales judgement, not a data output</li>
+</ul>
+
+<hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
+
+<p style="font-size:12px;color:#94a3b8">Data collected via yt-dlp · YouTube search only · 90-day lookback · 50 results per brand</p>
+
+</div>
+""", unsafe_allow_html=True)
