@@ -14,7 +14,6 @@ from database.db import (
     init_db, get_all_metrics, upsert_scores,
     get_data_freshness, get_data_sources_summary,
 )
-from collectors.youtube import YouTubeCollector
 from scoring.scorer import ICPScorer
 from utils.helpers import format_number, score_tier, generate_why_zelf_blurb
 
@@ -89,16 +88,6 @@ def load_all_data() -> tuple[pd.DataFrame, dict]:
         brand_platforms[bn][m["platform"]] = m["metrics"]
     return brands_df, brand_platforms
 
-
-def collect_all_data(progress_bar=None, brands=None):
-    if brands is None:
-        brands_df = load_brands()
-        brands = [r["brand_name"] for _, r in brands_df.iterrows()]
-    yt = YouTubeCollector()
-    for i, brand in enumerate(brands):
-        if progress_bar:
-            progress_bar.progress((i + 1) / len(brands), text=f"Collecting: {brand}")
-        yt.collect(brand, use_cache=False)
 
 
 def score_all_brands() -> tuple[pd.DataFrame, int]:
@@ -175,17 +164,9 @@ freshness = get_data_freshness()
 sources   = get_data_sources_summary()
 if freshness:
     st.sidebar.caption(f"Updated {freshness[:10]}  ·  {sum(sources.values())} brands")
+    st.sidebar.caption("To refresh: `python scripts/collect.py`")
 else:
-    st.sidebar.caption("No data yet")
-
-st.sidebar.markdown("")
-if st.sidebar.button("Refresh Data", use_container_width=True):
-    with st.spinner("Fetching YouTube metrics…"):
-        prog = st.sidebar.progress(0, text="Starting…")
-        collect_all_data(progress_bar=prog)
-        prog.empty()
-    st.cache_data.clear()
-    st.rerun()
+    st.sidebar.caption("No data — run `python scripts/collect.py`")
 
 # ── Data + filters ────────────────────────────────────────────────────────────
 scores_df, uncollected_count = score_all_brands()
