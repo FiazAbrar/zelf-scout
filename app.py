@@ -18,7 +18,7 @@ from scoring.scorer import ICPScorer
 from utils.helpers import format_number, score_tier, generate_why_zelf_blurb
 
 st.set_page_config(
-    page_title="Zelf ICP Scorer",
+    page_title="Brand Signal",
     page_icon="⬡",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -164,7 +164,7 @@ freshness = get_data_freshness()
 sources   = get_data_sources_summary()
 
 # ── Header ────────────────────────────────────────────────────────────────────
-st.markdown("# ICP Lead Scorer")
+st.markdown("# Brand Signal")
 st.markdown(
     "<span style='color:#64748b;font-size:15px'>"
     "Ranks CPG brands by organic creator activity — the leading signal for Zelf-readiness."
@@ -208,11 +208,11 @@ top_cat = filtered_df.groupby("category")["icp_score"].mean().idxmax() if len(fi
 c1.metric("Brands", len(filtered_df),
           help="Total brands with YouTube data collected in the current filter.")
 c2.metric("Hot Leads", len(hot),
-          help="Brands scoring ≥ 70 — strong ICP fit with meaningful creator activity.")
+          help="Brands scoring ≥ 70 — strong creator signal with meaningful creator activity.")
 c3.metric("Avg Score", f"{avg:.0f}",
-          help="Mean ICP score across all filtered brands.")
+          help="Mean signal score across all filtered brands.")
 c4.metric("Top Category", top_cat,
-          help="Category with the highest average ICP score.")
+          help="Category with the highest average signal score.")
 
 if uncollected_count:
     st.markdown(
@@ -254,7 +254,7 @@ with tab_table:
         column_config={
             "Score": st.column_config.ProgressColumn(
                 "Score",
-                help="ICP Readiness Score (0–100)\n\n≥ 70 → Hot Lead\n≥ 40 → Warm Lead\n< 40 → Low Priority",
+                help="Brand Signal Score (0–100)\n\n≥ 70 → Hot Lead\n≥ 40 → Warm Lead\n< 40 → Low Priority",
                 min_value=0,
                 max_value=100,
                 format="%.1f",
@@ -306,7 +306,7 @@ with tab_table:
     )
 
     csv = disp.to_csv(index=False)
-    st.download_button("Export CSV", csv, "zelf_icp_scores.csv", "text/csv")
+    st.download_button("Export CSV", csv, "brand_signal_scores.csv", "text/csv")
 
 
 # ── Tab 2: Explore ────────────────────────────────────────────────────────────
@@ -345,7 +345,7 @@ with tab_explore:
         st.plotly_chart(fig, width="stretch")
 
     with col_right:
-        st.markdown("**Top 15 by ICP Score**")
+        st.markdown("**Top 15 by Signal Score**")
         st.caption("Green ≥ 70 · Indigo ≥ 40 · Gray < 40")
 
         top15 = filtered_df.head(15).sort_values("icp_score")
