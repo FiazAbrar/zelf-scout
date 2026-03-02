@@ -193,7 +193,7 @@ with st.expander("How scores are computed"):
 | **Content Intent** | 25 pts | Percentile vs. cohort | % of video titles containing review/haul keywords |
 | **Category Fit** | 20 pts | Fixed multiplier | Beauty / Food / Personal Care → 20 · Beverage → 16 · Household → 12 · Pet → 8 |
 
-**Intent gate:** if a brand has zero review *and* purchase signals, total score is capped at 60 — high view volume alone isn't enough.
+**Intent gate:** if a brand has zero review intent (no review/haul/routine keywords in any title), total score is capped at 60 — high view volume alone isn't enough.
 **Data:** YouTube · collected via yt-dlp (no API key) · brand's own channel excluded
 """)
 
@@ -277,7 +277,7 @@ with tab_table:
                 help="Content Intent · max 25 pts\n\nPercentile vs. cohort — ranks brands relative to each other.\n"
                      "% of video titles containing review/haul/routine keywords.\n"
                      "Purchase intent (comments) is shown in evidence but not scored — too noisy from 1 video.\n\n"
-                     "Zero review intent = total score capped at 60.",
+                     "Zero review intent = total score capped at 60 — high reach alone isn't a Zelf lead.",
                 format="%.1f",
             ),
             "Cat. Fit": st.column_config.NumberColumn(
@@ -857,7 +857,7 @@ The number of distinct channel names in our 50-result sample. If two videos came
 <p><strong>Total views</strong><br>
 The sum of view counts across all collected videos. For large brands this dramatically undercounts reality. For smaller brands it is more representative.</p>
 
-<p><strong>Consideration rate</strong><br>
+<p><strong>Review intent ratio</strong><br>
 The percentage of video titles containing at least one of these words: <em>review, haul, routine, unboxing, unbox, try, tried, testing, tested, honest, worth it, first impression, reaction, comparison, vs</em>. This tells you whether creators are actively evaluating the brand versus casually mentioning it. It is a keyword match on the title — nothing more.</p>
 
 <p><strong>Engagement rate</strong><br>

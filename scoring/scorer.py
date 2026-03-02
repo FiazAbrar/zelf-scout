@@ -27,9 +27,9 @@ class ICPScorer:
       - content_intent is percentile-based: ranks brands relative to each other
         on a composite of review keyword ratio + purchase intent score.
       - category_fit is absolute: static Zelf ICP alignment lookup.
-      - Intent gate: if a brand has zero review AND purchase signals, its final
-        score is capped at INTENT_ABSENT_SCORE_CAP (default 60). High-volume brands
-        with no creator intentionality are not strong Zelf leads.
+      - Intent gate: if a brand has zero review intent (no review-keyword titles),
+        its final score is capped at INTENT_ABSENT_SCORE_CAP (default 60).
+        High-volume brands with no creator intentionality are not strong Zelf leads.
     """
 
     def __init__(self):

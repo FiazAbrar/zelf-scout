@@ -183,7 +183,7 @@ class YouTubeCollector:
             if is_video_about_brand(v["title"], v["channel"], brand_name):
                 evidence_video = v
                 break
-            logger.info(f"Skipping false positive for {brand_name}: '{v['title']}')")
+            logger.info(f"Skipping false positive for {brand_name}: '{v['title']}'")
 
         # ------------------------------------------------------------------ #
         # Step 2: Full fetch top-K — get likes + comments                     #
@@ -243,7 +243,7 @@ class YouTubeCollector:
             brand_name=brand_name,
             data_source="live_api",
             videos_last_90d=count,
-            shorts_last_90d=count,
+            shorts_last_90d=0,
             total_views=total_views,
             total_likes=total_likes,
             total_comments=total_comments,
