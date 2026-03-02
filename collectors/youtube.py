@@ -176,17 +176,8 @@ class YouTubeCollector:
         top = candidates[:YOUTUBE_FULL_FETCH_TOP_N]
         top_creators = list(dict.fromkeys(v["channel"] for v in candidates if v["channel"]))[:6]
 
-        # Find the top evidence video that's actually about the brand (LLM-validated).
-        # Walk down the top candidates until one passes — fallback to top[0] if none do.
-        evidence_video = top[0] if top else None
-        for v in top:
-            if is_video_about_brand(v["title"], v["channel"], brand_name):
-                evidence_video = v
-                break
-            logger.info(f"Skipping false positive for {brand_name}: '{v['title']}'")
-
         # ------------------------------------------------------------------ #
-        # Step 2: Full fetch top-K — get likes + comments                     #
+        # Step 2: Full fetch top-K — get likes + comments + description      #
         # ------------------------------------------------------------------ #
         total_likes = 0
         total_comments = 0
@@ -199,8 +190,26 @@ class YouTubeCollector:
                     )
                     total_likes += int(info.get("like_count") or 0)
                     total_comments += int(info.get("comment_count") or 0)
+                    # Store description for LLM validation (truncated to keep prompt small)
+                    desc = (info.get("description") or "").strip()
+                    v["description"] = desc[:600] if desc else ""
                 except Exception as e:
                     logger.warning(f"Full fetch failed for {v['id']}: {e}")
+
+        # Find the top evidence video that's actually about the brand (LLM-validated).
+        # Walk down the top candidates until one passes — fallback to top[0] if none do.
+        # Skip LLM call if the brand name already appears in the title (fast path).
+        brand_norm = re.sub(r"[^a-z0-9]", "", brand_name.lower())
+        evidence_video = top[0] if top else None
+        for v in top:
+            title_norm = re.sub(r"[^a-z0-9]", "", v["title"].lower())
+            if brand_norm in title_norm:
+                evidence_video = v
+                break
+            if is_video_about_brand(v["title"], v["channel"], brand_name, v.get("description", "")):
+                evidence_video = v
+                break
+            logger.info(f"Skipping false positive for {brand_name}: '{v['title']}'")
 
         top_views = sum(v["view_count"] for v in top)
         engagement_rate = (

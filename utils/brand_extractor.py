@@ -111,7 +111,7 @@ def extract_brands_from_titles(titles: list[str], category: str) -> dict[str, in
     }
 
 
-def is_video_about_brand(title: str, channel: str, brand_name: str) -> bool:
+def is_video_about_brand(title: str, channel: str, brand_name: str, description: str = "") -> bool:
     """Return True if this video is primarily about the brand.
 
     Uses LLM to filter false positives — e.g. a song called "Rhodes" showing up
@@ -123,10 +123,12 @@ def is_video_about_brand(title: str, channel: str, brand_name: str) -> bool:
 
     time.sleep(2)  # respect SambaNova free tier rate limit
 
+    desc_line = f'Description (first 600 chars): "{description}"\n' if description else ""
     prompt = (
         f'YouTube video:\n'
         f'Title: "{title}"\n'
-        f'Channel: "{channel}"\n\n'
+        f'Channel: "{channel}"\n'
+        f'{desc_line}\n'
         f'Is this video primarily reviewing, featuring, or discussing the CPG brand "{brand_name}"?\n'
         f'Answer with a single JSON object: {{"about_brand": true}} or {{"about_brand": false}}'
     )
