@@ -73,13 +73,14 @@ class YouTubeCollector:
     """
 
     def collect(self, brand_name: str, channel_id: str = "",
-                use_cache: bool = True) -> PlatformMetrics:
+                use_cache: bool = True, category: str = "") -> PlatformMetrics:
         """Collect YouTube creator metrics for a brand.
 
         Args:
             brand_name: Brand to search for (e.g. "CeraVe").
             channel_id: Ignored — kept for API compatibility with older callers.
             use_cache: Return cached DB result if available.
+            category: Brand category (e.g. "Personal Care") — used to give LLM context.
         """
         if use_cache:
             cached = get_metrics(brand_name, "youtube")
@@ -87,7 +88,7 @@ class YouTubeCollector:
                 return self._from_dict(brand_name, cached["metrics"], "cache")
 
         try:
-            return self._collect_live(brand_name)
+            return self._collect_live(brand_name, category)
         except Exception as e:
             logger.error(f"YouTube collection failed for {brand_name}: {e}")
             log_collection(brand_name, "youtube", "error", error_message=str(e))
@@ -99,7 +100,7 @@ class YouTubeCollector:
                 data_source="unavailable", error=str(e),
             )
 
-    def _collect_live(self, brand_name: str) -> PlatformMetrics:
+    def _collect_live(self, brand_name: str, category: str = "") -> PlatformMetrics:
         cutoff = datetime.now(timezone.utc) - timedelta(days=YOUTUBE_LOOKBACK_DAYS)
 
         # ------------------------------------------------------------------ #
@@ -197,16 +198,16 @@ class YouTubeCollector:
                     logger.warning(f"Full fetch failed for {v['id']}: {e}")
 
         # Find the top evidence video that's actually about the brand (LLM-validated).
-        # Walk down the top candidates until one passes — fallback to top[0] if none do.
+        # Walk down the top candidates until one passes — no fallback if none do.
         # Skip LLM call if the brand name already appears in the title (fast path).
         brand_norm = re.sub(r"[^a-z0-9]", "", brand_name.lower())
-        evidence_video = top[0] if top else None
+        evidence_video = None
         for v in top:
             title_norm = re.sub(r"[^a-z0-9]", "", v["title"].lower())
             if brand_norm in title_norm:
                 evidence_video = v
                 break
-            if is_video_about_brand(v["title"], v["channel"], brand_name, v.get("description", "")):
+            if is_video_about_brand(v["title"], v["channel"], brand_name, v.get("description", ""), category):
                 evidence_video = v
                 break
             logger.info(f"Skipping false positive for {brand_name}: '{v['title']}'")
