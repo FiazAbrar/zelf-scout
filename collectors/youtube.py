@@ -16,6 +16,7 @@ from config import (
     YOUTUBE_COMMENT_SAMPLE_SIZE,
 )
 from database.db import get_metrics, upsert_metrics, log_collection
+from utils.brand_extractor import is_video_about_brand
 
 logger = logging.getLogger(__name__)
 
@@ -165,12 +166,24 @@ class YouTubeCollector:
         titles = [v["title"] for v in candidates]
         review_hits = sum(1 for t in titles if _REVIEW_RE.search(t))
         review_intent_ratio = round(review_hits / len(titles), 3) if titles else 0.0
-        sample_review_titles = [t for t in titles if _REVIEW_RE.search(t)][:5]
+        sample_review_videos = [
+            {"id": v["id"], "title": v["title"]}
+            for v in candidates if _REVIEW_RE.search(v["title"])
+        ]
 
         # Sort by views; top-K go to full fetch
         candidates.sort(key=lambda v: v["view_count"], reverse=True)
         top = candidates[:YOUTUBE_FULL_FETCH_TOP_N]
         top_creators = list(dict.fromkeys(v["channel"] for v in candidates if v["channel"]))[:6]
+
+        # Find the top evidence video that's actually about the brand (LLM-validated).
+        # Walk down the top candidates until one passes — fallback to top[0] if none do.
+        evidence_video = top[0] if top else None
+        for v in top:
+            if is_video_about_brand(v["title"], v["channel"], brand_name):
+                evidence_video = v
+                break
+            logger.info(f"Skipping false positive for {brand_name}: '{v['title']}')")
 
         # ------------------------------------------------------------------ #
         # Step 2: Full fetch top-K — get likes + comments                     #
@@ -199,11 +212,11 @@ class YouTubeCollector:
         # ------------------------------------------------------------------ #
         purchase_intent_score = 0.0
         sample_purchase_comments: list[str] = []
-        if top:
+        if evidence_video:
             try:
                 with yt_dlp.YoutubeDL(_YDL_COMMENTS) as ydl:
                     comment_info = ydl.extract_info(
-                        f"https://www.youtube.com/watch?v={top[0]['id']}", download=False
+                        f"https://www.youtube.com/watch?v={evidence_video['id']}", download=False
                     )
                 comments = comment_info.get("comments") or []
                 if comments:
@@ -213,17 +226,17 @@ class YouTubeCollector:
                         if _PURCHASE_RE.search(c.get("text") or "")
                     ]
                     purchase_intent_score = round(len(matched) / len(comments), 3)
-                    sample_purchase_comments = [t[:200] for t in matched[:3]]
+                    sample_purchase_comments = [t[:300] for t in matched]
             except Exception as e:
-                logger.warning(f"Comment fetch failed for {top[0]['id']}: {e}")
+                logger.warning(f"Comment fetch failed for {evidence_video['id']}: {e}")
 
         top_video_evidence = {
-            "id":      top[0]["id"],
-            "title":   top[0]["title"],
-            "views":   top[0]["view_count"],
-            "channel": top[0].get("channel", ""),
-            "url":     f"https://youtu.be/{top[0]['id']}",
-        } if top else None
+            "id":      evidence_video["id"],
+            "title":   evidence_video["title"],
+            "views":   evidence_video["view_count"],
+            "channel": evidence_video.get("channel", ""),
+            "url":     f"https://youtu.be/{evidence_video['id']}",
+        } if evidence_video else None
 
         metrics = PlatformMetrics(
             platform="youtube",
@@ -247,7 +260,7 @@ class YouTubeCollector:
             evidence={
                 "top_video":                top_video_evidence,
                 "top_creators":             top_creators,
-                "sample_review_titles":     sample_review_titles,
+                "sample_review_videos":     sample_review_videos,
                 "sample_purchase_comments": sample_purchase_comments,
             },
         )

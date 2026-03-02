@@ -11,6 +11,7 @@ import json
 import logging
 import os
 import re
+import time
 
 import requests
 from dotenv import load_dotenv
@@ -31,13 +32,14 @@ _SYSTEM = (
 _PROMPT = """\
 Below are YouTube video titles from the {category} category.
 
-Find every real CPG brand name mentioned across these titles.
+Find every real CPG product brand name mentioned across these titles.
 Count how many titles each brand appears in (case-insensitive).
 
 Rules:
-- Include ONLY real brands sold in stores or online (e.g. CeraVe, Dove, Red Bull, OLIPOP, Tide, Doritos, Native, Gillette)
+- Include ONLY brands that manufacture and sell their own products (e.g. CeraVe, Dove, Red Bull, OLIPOP, Tide, Doritos, Native, Gillette, The Ordinary, Neutrogena)
 - Normalize to correct casing (cerave→CeraVe, ordinary→The Ordinary, elf→e.l.f., loreal→L'Oreal Paris)
-- Exclude: generic words, adjectives, verbs, retailers (Amazon/Target/Walmart/Costco/Ulta), platforms (YouTube/TikTok)
+- EXCLUDE retailers and grocery stores — these are NOT brands: Amazon, Target, Walmart, Costco, Aldi, Lidl, Whole Foods, Trader Joe's, Erewhon, Hmart, Sprouts, Kroger, Ulta, Sephora, CVS, Walgreens
+- EXCLUDE: generic words, adjectives, verbs, content creators, YouTube/TikTok, country/city names
 
 Output ONLY valid JSON on a single line: {{"BrandName": mention_count, ...}}
 If no real brands found, output: {{}}
@@ -60,7 +62,7 @@ def extract_brands_from_titles(titles: list[str], category: str) -> dict[str, in
         return {}
 
     # Deduplicate and cap titles to avoid huge prompts
-    unique_titles = list(dict.fromkeys(t for t in titles if t.strip()))[:200]
+    unique_titles = list(dict.fromkeys(t for t in titles if t.strip()))[:400]
     titles_block = "\n".join(f"- {t}" for t in unique_titles)
 
     prompt = _PROMPT.format(category=category, titles=titles_block)
@@ -79,9 +81,9 @@ def extract_brands_from_titles(titles: list[str], category: str) -> dict[str, in
                     {"role": "user",   "content": prompt},
                 ],
                 "temperature": 0,
-                "max_tokens": 512,
+                "max_tokens": 2048,
             },
-            timeout=30,
+            timeout=60,
         )
         resp.raise_for_status()
         raw = resp.json()["choices"][0]["message"]["content"].strip()
@@ -107,3 +109,59 @@ def extract_brands_from_titles(titles: list[str], category: str) -> dict[str, in
         for k, v in brands.items()
         if str(k).strip() and str(v).strip().isdigit()
     }
+
+
+def is_video_about_brand(title: str, channel: str, brand_name: str) -> bool:
+    """Return True if this video is primarily about the brand.
+
+    Uses LLM to filter false positives — e.g. a song called "Rhodes" showing up
+    for the brand "Rhode". Falls back to True on API failure so collection continues.
+    """
+    api_key = os.environ.get("SAMBANOVA_API_KEY", "").strip()
+    if not api_key:
+        return True  # no key → skip validation, accept all
+
+    time.sleep(2)  # respect SambaNova free tier rate limit
+
+    prompt = (
+        f'YouTube video:\n'
+        f'Title: "{title}"\n'
+        f'Channel: "{channel}"\n\n'
+        f'Is this video primarily reviewing, featuring, or discussing the CPG brand "{brand_name}"?\n'
+        f'Answer with a single JSON object: {{"about_brand": true}} or {{"about_brand": false}}'
+    )
+
+    for attempt in range(3):
+        try:
+            resp = requests.post(
+                _SAMBANOVA_URL,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": _MODEL,
+                    "messages": [
+                        {"role": "system", "content": "You are a video classification assistant. Output only valid JSON."},
+                        {"role": "user", "content": prompt},
+                    ],
+                    "temperature": 0,
+                    "max_tokens": 32,
+                },
+                timeout=15,
+            )
+            if resp.status_code == 429:
+                time.sleep(10 * (attempt + 1))
+                continue
+            resp.raise_for_status()
+            raw = resp.json()["choices"][0]["message"]["content"].strip()
+            match = re.search(r"\{.*\}", raw, re.DOTALL)
+            if match:
+                result = json.loads(match.group())
+                return bool(result.get("about_brand", True))
+            break
+        except Exception as e:
+            logger.warning(f"Video validation failed for '{title}': {e}")
+            break
+
+    return True  # on any failure, accept the video

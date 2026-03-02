@@ -172,28 +172,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Inline filters ────────────────────────────────────────────────────────────
-fa, fb, fc = st.columns([3, 2, 1])
-categories = sorted(scores_df["category"].unique())
-with fa:
-    selected_categories = st.multiselect(
-        "Category", categories, default=categories, label_visibility="collapsed",
-        placeholder="All categories",
-    )
-with fb:
-    score_range = st.slider("ICP Score", 0, 100, (0, 100), label_visibility="collapsed")
-with fc:
+if freshness:
     st.markdown(
-        f'<div style="padding-top:8px;font-size:11px;color:#94a3b8;text-align:right">'
-        f'{"Updated " + freshness[:10] if freshness else "No data"}'
-        f'</div>',
+        f'<div style="font-size:11px;color:#94a3b8;margin-bottom:8px">'
+        f'Updated {freshness[:10]}</div>',
         unsafe_allow_html=True,
     )
 
-filtered_df = scores_df[
-    scores_df["category"].isin(selected_categories) &
-    scores_df["icp_score"].between(score_range[0], score_range[1])
-].copy()
+filtered_df = scores_df.copy()
 
 # Methodology expander — collapsed by default, clean when opened
 with st.expander("How scores are computed"):
@@ -204,7 +190,7 @@ with st.expander("How scores are computed"):
 |---|---|---|---|
 | **Creator Reach** | 30 pts | Percentile vs. cohort | Total views on creator content · 90 days |
 | **Ecosystem** | 25 pts | Percentile + log bonus | Unique creators + breakout ratio (top video ÷ avg) |
-| **Content Intent** | 25 pts | Absolute (not relative) | 60% review-keyword titles + 40% purchase language in comments |
+| **Content Intent** | 25 pts | Percentile vs. cohort | % of video titles containing review/haul keywords |
 | **Category Fit** | 20 pts | Fixed multiplier | Beauty / Food / Personal Care → 20 · Beverage → 16 · Household → 12 · Pet → 8 |
 
 **Intent gate:** if a brand has zero review *and* purchase signals, total score is capped at 60 — high view volume alone isn't enough.
@@ -288,10 +274,10 @@ with tab_table:
             ),
             "Intent": st.column_config.NumberColumn(
                 "Content Intent",
-                help="Content Intent · max 25 pts\n\nAbsolute score — not relative to peers.\n"
-                     "60% from % of video titles containing review/haul keywords.\n"
-                     "40% from purchase language density in comments.\n\n"
-                     "Zero on both = total score capped at 60.",
+                help="Content Intent · max 25 pts\n\nPercentile vs. cohort — ranks brands relative to each other.\n"
+                     "% of video titles containing review/haul/routine keywords.\n"
+                     "Purchase intent (comments) is shown in evidence but not scored — too noisy from 1 video.\n\n"
+                     "Zero review intent = total score capped at 60.",
                 format="%.1f",
             ),
             "Cat. Fit": st.column_config.NumberColumn(
@@ -316,7 +302,7 @@ with tab_table:
         },
         height=560,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     csv = disp.to_csv(index=False)
@@ -328,38 +314,35 @@ with tab_explore:
     col_left, col_right = st.columns(2)
 
     with col_left:
-        st.markdown("**Opportunity Matrix**")
-        st.caption("Hover a bubble for details · size = creator count · dashed lines = median")
+        st.markdown("**Review Intent vs. Creator Count**")
+        st.caption("Brands with many creators AND high review intent — the sweet spot for Zelf")
 
         fig = px.scatter(
             filtered_df,
-            x="creator_reach_score",
-            y="content_intent_score",
-            size="unique_creators",
+            x="unique_creators",
+            y="review_intent_ratio",
             color="category",
             hover_name="brand_name",
             hover_data={
                 "icp_score": ":.1f",
                 "unique_creators": True,
-                "creator_reach_score": False,
-                "content_intent_score": False,
+                "review_intent_ratio": ":.2f",
             },
-            size_max=36,
             color_discrete_sequence=px.colors.qualitative.Pastel,
         )
-        fig.add_hline(y=filtered_df["content_intent_score"].median(),
+        fig.add_hline(y=filtered_df["review_intent_ratio"].median(),
                       line_dash="dot", line_color="#e2e8f0", line_width=1)
-        fig.add_vline(x=filtered_df["creator_reach_score"].median(),
+        fig.add_vline(x=filtered_df["unique_creators"].median(),
                       line_dash="dot", line_color="#e2e8f0", line_width=1)
         fig.update_layout(
             **PLOTLY_LAYOUT,
-            xaxis_title="Creator Reach Score",
-            yaxis_title="Content Intent Score",
+            xaxis_title="Unique Creators",
+            yaxis_title="Review Intent Ratio",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
                         font=dict(size=11)),
             height=380,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with col_right:
         st.markdown("**Top 15 by ICP Score**")
@@ -385,7 +368,7 @@ with tab_explore:
             yaxis=dict(showgrid=False, zeroline=False),
             height=420,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.markdown("**Average ICP Score by Category**")
     cat_avg = (
@@ -411,13 +394,13 @@ with tab_explore:
         yaxis=dict(showgrid=False, zeroline=False),
         height=280,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 
 # ── Tab 3: Brand Deep Dive ────────────────────────────────────────────────────
 with tab_detail:
     brand_names = filtered_df["brand_name"].tolist()
-    selected = st.selectbox("", brand_names, label_visibility="collapsed")
+    selected = st.selectbox("Select brand", brand_names, label_visibility="collapsed")
 
     if selected:
         row  = filtered_df[filtered_df["brand_name"] == selected].iloc[0]
@@ -490,7 +473,7 @@ with tab_detail:
                 paper_bgcolor="rgba(0,0,0,0)",
                 font_family="Inter",
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # ── Score bars with contextual quality labels ─────────────────────────
         with right:
@@ -580,12 +563,14 @@ with tab_detail:
                     # Top creators
                     creators = evidence.get("top_creators") or []
                     if creators:
+                        import urllib.parse as _up
                         st.markdown(
                             f'<div style="margin-bottom:16px">'
                             f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Creator channels sampled</div>'
                             f'<div style="font-size:12px;color:#374151;line-height:1.8">'
                             + "".join(
-                                f'<span style="background:#f1f5f9;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;display:inline-block;font-size:11px">{c}</span>'
+                                f'<a href="https://www.youtube.com/results?search_query={_up.quote(c)}" target="_blank" '
+                                f'style="background:#f1f5f9;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;display:inline-block;font-size:11px;color:#374151;text-decoration:none">{c}</a>'
                                 for c in creators
                             )
                             + f'{"&nbsp;<span style=\\'font-size:11px;color:#94a3b8\\'>+ more</span>" if row["unique_creators"] > len(creators) else ""}'
@@ -595,12 +580,20 @@ with tab_detail:
 
                 with ev_cols[1]:
                     # Review-matched titles
-                    rtitles = evidence.get("sample_review_titles") or []
+                    rvideos = evidence.get("sample_review_videos") or []
+                    # fallback for old cached data that stored plain title strings
+                    if rvideos and isinstance(rvideos[0], str):
+                        rvideos = [{"id": None, "title": t} for t in rvideos]
                     n_review = int(row["review_intent_ratio"] * int(row["total_videos"]))
-                    if rtitles:
+                    if rvideos:
                         items = "".join(
-                            f'<li style="margin-bottom:4px;color:#374151">{t}</li>'
-                            for t in rtitles
+                            f'<li style="margin-bottom:4px;color:#374151">'
+                            f'<a href="https://youtu.be/{v["id"]}" target="_blank" '
+                            f'style="color:#374151;text-decoration:none" onmouseover="this.style.color=\'#6366f1\'" onmouseout="this.style.color=\'#374151\'">{v["title"]}</a>'
+                            f'</li>'
+                            if v.get("id") else
+                            f'<li style="margin-bottom:4px;color:#374151">{v["title"]}</li>'
+                            for v in rvideos
                         )
                         st.markdown(
                             f'<div style="margin-bottom:16px">'
@@ -619,8 +612,14 @@ with tab_detail:
 
                     # Purchase-intent comments
                     pcomments = evidence.get("sample_purchase_comments") or []
+                    top_video_url = (evidence.get("top_video") or {}).get("url", "")
                     n_comments = m_raw.get("total_comments", 0)
                     if pcomments:
+                        label = (
+                            f'Purchase-intent comments (<a href="{top_video_url}" target="_blank" '
+                            f'style="color:#94a3b8;text-decoration:underline">from top video</a>)'
+                            if top_video_url else "Purchase-intent comments (from top video)"
+                        )
                         items = "".join(
                             f'<li style="margin-bottom:6px;color:#374151;font-style:italic">"{c}"</li>'
                             for c in pcomments
@@ -628,7 +627,7 @@ with tab_detail:
                         st.markdown(
                             f'<div>'
                             f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">'
-                            f'Purchase-intent comments (from top video)'
+                            f'{label}'
                             f'</div>'
                             f'<ul style="margin:0;padding-left:16px;font-size:12px;line-height:1.6">{items}</ul>'
                             f'</div>',
@@ -728,7 +727,7 @@ with tab_raw:
         },
         height=480,
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
@@ -758,7 +757,7 @@ with tab_raw:
                         font=dict(size=11)),
             height=340,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     with cb:
         st.markdown("**Review Intent vs. Purchase Score**")
@@ -780,7 +779,7 @@ with tab_raw:
             showlegend=False,
             height=340,
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Breakout ratio bar
     st.markdown("**Breakout Ratio by Brand**")
@@ -806,7 +805,7 @@ with tab_raw:
         height=max(320, len(br_sorted) * 22),
         margin=dict(t=16, b=16, l=120, r=60),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     # Download
     st.download_button(

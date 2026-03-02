@@ -24,8 +24,9 @@ class ICPScorer:
     Scoring philosophy:
       - reach and ecosystem are percentile-based: they rank brands relative to
         each other, so the distribution is always meaningful regardless of cohort.
-      - content_intent and category_fit are absolute: a brand should not score
-        high on intent just because its peers have even lower intent.
+      - content_intent is percentile-based: ranks brands relative to each other
+        on a composite of review keyword ratio + purchase intent score.
+      - category_fit is absolute: static Zelf ICP alignment lookup.
       - Intent gate: if a brand has zero review AND purchase signals, its final
         score is capped at INTENT_ABSENT_SCORE_CAP (default 60). High-volume brands
         with no creator intentionality are not strong Zelf leads.
@@ -68,10 +69,12 @@ class ICPScorer:
             + df["breakout_ratio"].apply(self._breakout_bonus)
         ).clip(upper=self.weights["creator_ecosystem"])
 
-        # --- Content Intent (absolute, not relative to cohort) ---
-        df["content_intent_score"] = (
-            df["review_intent_ratio"] * 0.6 + df["purchase_intent_score"] * 0.4
-        ) * self.weights["content_intent"]
+        # --- Content Intent (percentile-based, review intent only) ---
+        # Purchase intent (comments on 1 video) is too noisy to include in scoring.
+        # It remains visible in the evidence trail for qualitative context.
+        df["content_intent_score"] = self._percentile_score(
+            df["review_intent_ratio"], self.weights["content_intent"]
+        )
 
         # --- Category Fit (static lookup) ---
         df["category_fit_score"] = df["category"].map(
@@ -86,8 +89,8 @@ class ICPScorer:
             + df["category_fit_score"]
         )
 
-        # Intent gate: brands with zero creator intentionality get capped
-        intent_absent = (df["review_intent_ratio"] == 0) & (df["purchase_intent_score"] == 0)
+        # Intent gate: brands with zero review intent get capped
+        intent_absent = df["review_intent_ratio"] == 0
         df["icp_score"] = raw_score.where(
             ~intent_absent,
             raw_score.clip(upper=INTENT_ABSENT_SCORE_CAP)

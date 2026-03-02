@@ -7,6 +7,7 @@ Flow per category:
 """
 
 import logging
+import urllib.parse
 
 import yt_dlp
 
@@ -20,6 +21,7 @@ _YDL_FLAT = {
     "no_warnings": True,
     "extract_flat": True,
     "skip_download": True,
+    "playlistend": DISCOVERY_VIDEOS_PER_QUERY,
 }
 
 
@@ -53,10 +55,15 @@ class DiscoveryCollector:
         return top
 
     def _fetch_titles(self, query: str) -> list[str]:
-        search_query = f"ytsearch{DISCOVERY_VIDEOS_PER_QUERY}:{query}"
+        # Sort by upload date (most recent first) — same as the main collector
+        url = (
+            "https://www.youtube.com/results?search_query="
+            + urllib.parse.quote(query)
+            + "&sp=CAI%3D"
+        )
         try:
             with yt_dlp.YoutubeDL(_YDL_FLAT) as ydl:
-                result = ydl.extract_info(search_query, download=False)
+                result = ydl.extract_info(url, download=False)
             entries = result.get("entries") or []
             return [e.get("title") or "" for e in entries if e]
         except Exception as e:

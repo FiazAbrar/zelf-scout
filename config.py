@@ -72,28 +72,52 @@ DISCOVERY_QUERIES = {
         "skincare routine review",
         "makeup haul",
         "drugstore beauty try",
+        "sunscreen review",
+        "serum haul",
+        "body lotion review",
+        "tinted moisturizer review",
+        "skincare products I use",
     ],
     "Food & Snacks": [
         "snack haul taste test",
         "grocery haul food review",
+        "protein bar review",
+        "healthy snack haul",
+        "new snacks try",
+        "chips review",
     ],
     "Beverage": [
         "energy drink review",
         "healthy drink haul",
+        "sparkling water review",
+        "prebiotic soda review",
+        "protein shake review",
+        "sports drink review",
     ],
     "Personal Care": [
         "personal care haul",
-        "deodorant shampoo review",
+        "deodorant review",
+        "shampoo conditioner review",
+        "body wash review",
+        "hair care haul",
+        "toothpaste review",
     ],
     "Household": [
         "cleaning products review",
         "household haul",
+        "laundry detergent review",
+        "dish soap review",
+        "all purpose cleaner review",
     ],
     "Pet Care": [
-        "pet food review dog cat treats",
+        "dog food review",
+        "cat food review",
+        "pet treats taste test",
+        "pet food haul",
+        "best dog food review",
     ],
 }
 
 DISCOVERY_VIDEOS_PER_QUERY = 50        # flat search cap per query
-DISCOVERY_MIN_MENTIONS = 2             # brand must appear >= N times to be kept
+DISCOVERY_MIN_MENTIONS = 1             # brand must appear >= N times to be kept
 DISCOVERY_MAX_BRANDS_PER_CATEGORY = 15 # cap per category → max ~90 brands total
