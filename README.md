@@ -1,6 +1,6 @@
 # Zelf ICP Lead Scorer
 
-A Streamlit dashboard that discovers and ranks CPG brands by their **creator video ecosystem** — the strongest signal for whether a brand needs [Zelf](https://www.zelf.co/).
+A Streamlit dashboard that discovers and ranks CPG brands by their **creator video ecosystem** — the strongest signal for whether a brand needs [Zelf](https://www.hellozelf.com/).
 
 **The insight**: Brands with large creator communities (people making videos *about* them) have the most to gain from Zelf's AI-powered social video intelligence. This tool surfaces those brands from YouTube data — no CRM, no manual research.
 
