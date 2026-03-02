@@ -1,9 +1,5 @@
 from math import log2
 
-import pandas as pd
-from scipy.stats import percentileofscore
-
-from collectors import PlatformMetrics
 from config import (
     SCORING_WEIGHTS,
     CATEGORY_FIT,
@@ -18,92 +14,70 @@ class ICPScorer:
     Dimensions:
       creator_reach     (30 pts) — total views on creator content; percentile-based
       creator_ecosystem (25 pts) — unique creator count (percentile) + breakout bonus (absolute)
-      content_intent    (25 pts) — review keyword ratio + purchase intent score; absolute
+      content_intent    (25 pts) — review keyword ratio; percentile-based
       category_fit      (20 pts) — static Zelf ICP alignment; absolute lookup
 
     Scoring philosophy:
-      - reach and ecosystem are percentile-based: they rank brands relative to
-        each other, so the distribution is always meaningful regardless of cohort.
-      - content_intent is percentile-based: ranks brands relative to each other
-        on a composite of review keyword ratio + purchase intent score.
+      - reach, ecosystem, and intent are percentile-based: brands ranked against each other.
       - category_fit is absolute: static Zelf ICP alignment lookup.
-      - Intent gate: if a brand has zero review intent (no review-keyword titles),
-        its final score is capped at INTENT_ABSENT_SCORE_CAP (default 60).
-        High-volume brands with no creator intentionality are not strong Zelf leads.
+      - Intent gate: if a brand has zero review intent, score is capped at INTENT_ABSENT_SCORE_CAP.
     """
 
     def __init__(self):
         self.weights = SCORING_WEIGHTS
 
-    def score_brands(self, brand_data: list[dict]) -> pd.DataFrame:
-        """Score all brands from aggregated platform metrics.
+    def score_brands(self, brand_data: list[dict]) -> list[dict]:
+        """Score all brands. Returns list of dicts sorted by icp_score descending."""
+        if not brand_data:
+            return []
 
-        Args:
-            brand_data: list of dicts with keys:
-                brand_name, category, platforms (dict[platform] -> metrics dict)
-
-        Returns:
-            DataFrame sorted by icp_score descending, with rank column.
-        """
         rows = []
         for brand in brand_data:
             agg = self._aggregate_platforms(brand)
             rows.append({
                 "brand_name": brand["brand_name"],
-                "category": brand["category"],
+                "category":   brand["category"],
                 **agg,
             })
 
-        df = pd.DataFrame(rows)
-        if df.empty:
-            return df
+        total_views_vals    = [r["total_views"]        for r in rows]
+        unique_creator_vals = [r["unique_creators"]     for r in rows]
+        review_intent_vals  = [r["review_intent_ratio"] for r in rows]
 
-        # --- Creator Reach (percentile-based) ---
-        df["creator_reach_score"] = self._percentile_score(
-            df["total_views"], self.weights["creator_reach"]
-        )
+        w = self.weights
+        for r in rows:
+            r["creator_reach_score"] = round(
+                self._pct_score(total_views_vals, r["total_views"], w["creator_reach"]), 1
+            )
+            ecosystem_base = self._pct_score(
+                unique_creator_vals, r["unique_creators"],
+                w["creator_ecosystem"] - BREAKOUT_BONUS_MAX_PTS,
+            )
+            r["creator_ecosystem_score"] = round(
+                min(ecosystem_base + self._breakout_bonus(r["breakout_ratio"]), w["creator_ecosystem"]), 1
+            )
+            r["content_intent_score"] = round(
+                self._pct_score(review_intent_vals, r["review_intent_ratio"], w["content_intent"]), 1
+            )
+            r["category_fit_score"] = round(
+                CATEGORY_FIT.get(r["category"], 0.3) * w["category_fit"], 1
+            )
 
-        # --- Creator Ecosystem (percentile base + absolute breakout bonus) ---
-        df["creator_ecosystem_score"] = (
-            self._percentile_score(df["unique_creators"], max_pts=self.weights["creator_ecosystem"] - BREAKOUT_BONUS_MAX_PTS)
-            + df["breakout_ratio"].apply(self._breakout_bonus)
-        ).clip(upper=self.weights["creator_ecosystem"])
+            raw = (
+                r["creator_reach_score"]
+                + r["creator_ecosystem_score"]
+                + r["content_intent_score"]
+                + r["category_fit_score"]
+            )
+            if r["review_intent_ratio"] == 0:
+                raw = min(raw, INTENT_ABSENT_SCORE_CAP)
+            r["icp_score"] = round(raw, 1)
 
-        # --- Content Intent (percentile-based, review intent only) ---
-        # Purchase intent (comments on 1 video) is too noisy to include in scoring.
-        # It remains visible in the evidence trail for qualitative context.
-        df["content_intent_score"] = self._percentile_score(
-            df["review_intent_ratio"], self.weights["content_intent"]
-        )
+        rows.sort(key=lambda r: r["icp_score"], reverse=True)
+        for i, r in enumerate(rows):
+            r["rank"] = i + 1
 
-        # --- Category Fit (static lookup) ---
-        df["category_fit_score"] = df["category"].map(
-            lambda c: CATEGORY_FIT.get(c, 0.3) * self.weights["category_fit"]
-        )
-
-        # --- ICP Score ---
-        raw_score = (
-            df["creator_reach_score"]
-            + df["creator_ecosystem_score"]
-            + df["content_intent_score"]
-            + df["category_fit_score"]
-        )
-
-        # Intent gate: brands with zero review intent get capped
-        intent_absent = df["review_intent_ratio"] == 0
-        df["icp_score"] = raw_score.where(
-            ~intent_absent,
-            raw_score.clip(upper=INTENT_ABSENT_SCORE_CAP)
-        ).round(1)
-
-        # Round sub-scores for display
-        for col in ["creator_reach_score", "creator_ecosystem_score",
-                    "content_intent_score", "category_fit_score"]:
-            df[col] = df[col].round(1)
-
-        df = df.sort_values("icp_score", ascending=False).reset_index(drop=True)
-        df["rank"] = range(1, len(df) + 1)
-        return df
+        return rows
 
     # ---------------------------------------------------------------------- #
     # Private helpers                                                         #
@@ -112,38 +86,25 @@ class ICPScorer:
     def _aggregate_platforms(self, brand: dict) -> dict:
         """Aggregate metrics across all active platforms for a single brand."""
         platforms = brand.get("platforms", {})
-        total_views = 0
-        total_likes = 0
-        total_comments = 0
-        total_videos = 0
-        active_platforms = 0
+        total_views = total_likes = total_comments = total_videos = active_platforms = 0
         engagement_rates = []
-
-        # Creator ecosystem signals (take max/union across platforms)
         unique_creators = 0
-        breakout_ratio = 0.0
-        review_intent_ratio = 0.0
-        purchase_intent_score = 0.0
+        breakout_ratio = review_intent_ratio = purchase_intent_score = 0.0
 
-        for platform_name, metrics in platforms.items():
+        for metrics in platforms.values():
             if metrics.get("data_source") == "unavailable":
                 continue
             active_platforms += 1
-
             total_views    += metrics.get("total_views", 0)
             total_likes    += metrics.get("total_likes", 0)
             total_comments += metrics.get("total_comments", 0)
             total_videos   += metrics.get("videos_last_90d", 0)
-
             er = metrics.get("engagement_rate", 0.0)
             if er > 0:
                 engagement_rates.append(er)
-
-            # Ecosystem signals: take the platform-level values
-            # (currently single-platform; extend naturally when more platforms added)
-            unique_creators      = max(unique_creators,      metrics.get("unique_creators", 0))
-            breakout_ratio       = max(breakout_ratio,       metrics.get("breakout_ratio", 0.0))
-            review_intent_ratio  = max(review_intent_ratio,  metrics.get("review_intent_ratio", 0.0))
+            unique_creators       = max(unique_creators,       metrics.get("unique_creators", 0))
+            breakout_ratio        = max(breakout_ratio,        metrics.get("breakout_ratio", 0.0))
+            review_intent_ratio   = max(review_intent_ratio,   metrics.get("review_intent_ratio", 0.0))
             purchase_intent_score = max(purchase_intent_score, metrics.get("purchase_intent_score", 0.0))
 
         avg_er = sum(engagement_rates) / len(engagement_rates) if engagement_rates else 0.0
@@ -161,24 +122,25 @@ class ICPScorer:
             "purchase_intent_score": purchase_intent_score,
         }
 
-    def _percentile_score(self, series: pd.Series, max_pts: float) -> pd.Series:
-        """Convert raw values to percentile-based scores (0 to max_pts).
+    def _pct_score(self, values: list[float], x: float, max_pts: float) -> float:
+        """Rank-style percentile score (0 to max_pts). Equal values share the same score.
 
-        Brands at equal values share the same percentile. When all values are
-        identical, every brand gets max_pts / 2 (mid-point, not zero).
+        Equivalent to scipy.stats.percentileofscore(values, x, kind="rank") / 100 * max_pts
+        but without the dependency. When all values are identical, returns max_pts / 2.
         """
-        if series.max() == series.min():
-            return pd.Series([max_pts / 2] * len(series), index=series.index)
-        return series.apply(
-            lambda x: percentileofscore(series, x, kind="rank") / 100 * max_pts
-        )
+        if not values or max(values) == min(values):
+            return max_pts / 2
+        n = len(values)
+        below = sum(1 for v in values if v < x)
+        equal = sum(1 for v in values if v == x)
+        return (below + 0.5 * equal) / n * max_pts
 
     def _breakout_bonus(self, breakout_ratio: float) -> float:
         """Log-scaled bonus points for viral potential (0 to BREAKOUT_BONUS_MAX_PTS).
 
-        A breakout_ratio of 1 (flat, no outlier) → 0 pts.
-        A breakout_ratio of 8 (one video 8× the average) → ~3 pts.
-        A breakout_ratio of 64+ → capped at BREAKOUT_BONUS_MAX_PTS.
+        breakout_ratio of 1 (flat, no outlier) → 0 pts.
+        breakout_ratio of 8 (one video 8× average) → ~3 pts.
+        breakout_ratio of 64+ → capped at BREAKOUT_BONUS_MAX_PTS.
         """
         if breakout_ratio <= 1:
             return 0.0

@@ -1,13 +1,16 @@
+import csv
 import re
+import statistics
 import sys
+from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import streamlit as st
-import pandas as pd
+import pandas as pd  # used only for st.dataframe display tables
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 
 from config import BRANDS_CSV, SCORING_WEIGHTS, CATEGORY_FIT
 from database.db import (
@@ -73,12 +76,13 @@ init_db()
 
 
 @st.cache_data(ttl=60)
-def load_brands() -> pd.DataFrame:
-    return pd.read_csv(BRANDS_CSV)
+def load_brands() -> list[dict]:
+    with open(BRANDS_CSV, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
 
 
-def load_all_data() -> tuple[pd.DataFrame, dict]:
-    brands_df = load_brands()
+def load_all_data() -> tuple[list[dict], dict]:
+    brands = load_brands()
     all_metrics = get_all_metrics()
     brand_platforms = {}
     for m in all_metrics:
@@ -86,32 +90,32 @@ def load_all_data() -> tuple[pd.DataFrame, dict]:
         if bn not in brand_platforms:
             brand_platforms[bn] = {}
         brand_platforms[bn][m["platform"]] = m["metrics"]
-    return brands_df, brand_platforms
+    return brands, brand_platforms
 
 
-
-def score_all_brands() -> tuple[pd.DataFrame, int]:
-    """Returns (scores_df, uncollected_count).
+def score_all_brands() -> tuple[list[dict], int]:
+    """Returns (brands, uncollected_count).
 
     Only brands with actual YouTube data are scored. Uncollected brands are
     excluded so they don't pollute the percentile distribution with zeros.
     """
-    brands_df, brand_platforms = load_all_data()
+    brands, brand_platforms = load_all_data()
     scorer = ICPScorer()
 
     collected, uncollected = [], []
-    for _, r in brands_df.iterrows():
-        entry = {"brand_name": r["brand_name"], "category": r["category"],
-                 "platforms": brand_platforms.get(r["brand_name"], {})}
-        if brand_platforms.get(r["brand_name"]):
+    for brand in brands:
+        entry = {
+            "brand_name": brand["brand_name"],
+            "category":   brand["category"],
+            "platforms":  brand_platforms.get(brand["brand_name"], {}),
+        }
+        if brand_platforms.get(brand["brand_name"]):
             collected.append(entry)
         else:
-            uncollected.append(r["brand_name"])
+            uncollected.append(brand["brand_name"])
 
-    brand_data = collected
-    uncollected_count = len(uncollected)
-    scores_df = scorer.score_brands(brand_data)
-    if not scores_df.empty:
+    scored = scorer.score_brands(collected)
+    if scored:
         upsert_scores([
             {
                 "brand_name": r["brand_name"], "category": r["category"],
@@ -128,9 +132,9 @@ def score_all_brands() -> tuple[pd.DataFrame, int]:
                 "review_intent_ratio": r["review_intent_ratio"],
                 "purchase_intent_score": r["purchase_intent_score"],
             }
-            for _, r in scores_df.iterrows()
+            for r in scored
         ])
-    return scores_df, uncollected_count
+    return scored, len(uncollected)
 
 
 def _md(text: str) -> str:
@@ -153,13 +157,13 @@ def _quality(pct: float) -> tuple[str, str]:
 
 
 # ── Data ──────────────────────────────────────────────────────────────────────
-scores_df, uncollected_count = score_all_brands()
+brands, uncollected_count = score_all_brands()
 
-if scores_df.empty:
+if not brands:
     st.info("No data yet — run `python scripts/collect.py` to collect it.")
     st.stop()
 
-brands_df, brand_platforms = load_all_data()
+_, brand_platforms = load_all_data()
 freshness = get_data_freshness()
 sources   = get_data_sources_summary()
 
@@ -178,8 +182,6 @@ if freshness:
         f'Updated {freshness[:10]}</div>',
         unsafe_allow_html=True,
     )
-
-filtered_df = scores_df.copy()
 
 # Methodology expander — collapsed by default, clean when opened
 with st.expander("How scores are computed"):
@@ -201,16 +203,20 @@ st.markdown("<div style='height:16px'></div>", unsafe_allow_html=True)
 
 # ── Summary strip ─────────────────────────────────────────────────────────────
 c1, c2, c3, c4 = st.columns(4)
-hot     = filtered_df[filtered_df["icp_score"] >= 70]
-avg     = filtered_df["icp_score"].mean() if len(filtered_df) else 0
-top_cat = filtered_df.groupby("category")["icp_score"].mean().idxmax() if len(filtered_df) else "—"
 
-c1.metric("Brands", len(filtered_df),
-          help="Total brands with YouTube data collected in the current filter.")
+hot     = [b for b in brands if b["icp_score"] >= 70]
+avg     = sum(b["icp_score"] for b in brands) / len(brands)
+cat_scores = defaultdict(list)
+for b in brands:
+    cat_scores[b["category"]].append(b["icp_score"])
+top_cat = max(cat_scores, key=lambda c: sum(cat_scores[c]) / len(cat_scores[c])) if cat_scores else "—"
+
+c1.metric("Brands", len(brands),
+          help="Total brands with YouTube data collected.")
 c2.metric("Hot Leads", len(hot),
           help="Brands scoring ≥ 70 — strong creator signal with meaningful creator activity.")
 c3.metric("Avg Score", f"{avg:.0f}",
-          help="Mean signal score across all filtered brands.")
+          help="Mean signal score across all brands.")
 c4.metric("Top Category", top_cat,
           help="Category with the highest average signal score.")
 
@@ -232,10 +238,9 @@ tab_table, tab_explore, tab_detail, tab_raw, tab_about = st.tabs(["Ranking", "Ex
 
 # ── Tab 1: Ranking ────────────────────────────────────────────────────────────
 with tab_table:
-    rows = []
-    for _, r in filtered_df.iterrows():
-        rows.append({
-            "#":         int(r["rank"]),
+    disp = pd.DataFrame([
+        {
+            "#":         r["rank"],
             "Brand":     r["brand_name"],
             "Category":  r["category"],
             "Score":     float(r["icp_score"]),
@@ -245,9 +250,9 @@ with tab_table:
             "Cat. Fit":  float(r["category_fit_score"]),
             "Creators":  int(r["unique_creators"]),
             "Views":     int(r["total_views"]),
-        })
-
-    disp = pd.DataFrame(rows)
+        }
+        for r in brands
+    ])
 
     st.dataframe(
         disp,
@@ -305,8 +310,7 @@ with tab_table:
         width="stretch",
     )
 
-    csv = disp.to_csv(index=False)
-    st.download_button("Export CSV", csv, "brand_signal_scores.csv", "text/csv")
+    st.download_button("Export CSV", disp.to_csv(index=False), "brand_signal_scores.csv", "text/csv")
 
 
 # ── Tab 2: Explore ────────────────────────────────────────────────────────────
@@ -318,7 +322,7 @@ with tab_explore:
         st.caption("Brands with many creators AND high review intent — the sweet spot for Zelf")
 
         fig = px.scatter(
-            filtered_df,
+            brands,
             x="unique_creators",
             y="review_intent_ratio",
             color="category",
@@ -330,10 +334,10 @@ with tab_explore:
             },
             color_discrete_sequence=px.colors.qualitative.Pastel,
         )
-        fig.add_hline(y=filtered_df["review_intent_ratio"].median(),
-                      line_dash="dot", line_color="#e2e8f0", line_width=1)
-        fig.add_vline(x=filtered_df["unique_creators"].median(),
-                      line_dash="dot", line_color="#e2e8f0", line_width=1)
+        med_intent   = statistics.median(b["review_intent_ratio"] for b in brands)
+        med_creators = statistics.median(b["unique_creators"] for b in brands)
+        fig.add_hline(y=med_intent,   line_dash="dot", line_color="#e2e8f0", line_width=1)
+        fig.add_vline(x=med_creators, line_dash="dot", line_color="#e2e8f0", line_width=1)
         fig.update_layout(
             **PLOTLY_LAYOUT,
             xaxis_title="Unique Creators",
@@ -348,16 +352,17 @@ with tab_explore:
         st.markdown("**Top 15 by Signal Score**")
         st.caption("Green ≥ 70 · Indigo ≥ 40 · Gray < 40")
 
-        top15 = filtered_df.head(15).sort_values("icp_score")
+        top15     = brands[:15]  # already sorted descending
+        top15_asc = sorted(top15, key=lambda b: b["icp_score"])
         fig = go.Figure(go.Bar(
-            x=top15["icp_score"],
-            y=top15["brand_name"],
+            x=[b["icp_score"] for b in top15_asc],
+            y=[b["brand_name"] for b in top15_asc],
             orientation="h",
             marker_color=[
-                "#059669" if s >= 70 else "#6366f1" if s >= 40 else "#e2e8f0"
-                for s in top15["icp_score"]
+                "#059669" if b["icp_score"] >= 70 else "#6366f1" if b["icp_score"] >= 40 else "#e2e8f0"
+                for b in top15_asc
             ],
-            text=top15["icp_score"].round(1),
+            text=[round(b["icp_score"], 1) for b in top15_asc],
             textposition="outside",
             textfont=dict(size=11, color="#64748b"),
             hovertemplate="%{y}: %{x:.1f}<extra></extra>",
@@ -371,19 +376,20 @@ with tab_explore:
         st.plotly_chart(fig, width="stretch")
 
     st.markdown("**Average ICP Score by Category**")
-    cat_avg = (
-        filtered_df.groupby("category")["icp_score"]
-        .agg(["mean", "count"])
-        .reset_index()
-        .sort_values("mean", ascending=True)
+    cat_avgs = sorted(
+        [
+            {"category": c, "mean": sum(v) / len(v), "count": len(v)}
+            for c, v in cat_scores.items()
+        ],
+        key=lambda x: x["mean"],
     )
     fig = go.Figure(go.Bar(
-        x=cat_avg["mean"].round(1),
-        y=cat_avg["category"],
+        x=[round(c["mean"], 1) for c in cat_avgs],
+        y=[c["category"] for c in cat_avgs],
         orientation="h",
         marker_color="#6366f1",
         opacity=0.8,
-        text=cat_avg.apply(lambda r: f"{r['mean']:.0f}  ({int(r['count'])} brands)", axis=1),
+        text=[f"{c['mean']:.0f}  ({c['count']} brands)" for c in cat_avgs],
         textposition="outside",
         textfont=dict(size=11, color="#64748b"),
         hovertemplate="%{y}: %{x:.1f}<extra></extra>",
@@ -399,11 +405,11 @@ with tab_explore:
 
 # ── Tab 3: Brand Deep Dive ────────────────────────────────────────────────────
 with tab_detail:
-    brand_names = filtered_df["brand_name"].tolist()
+    brand_names = [b["brand_name"] for b in brands]
     selected = st.selectbox("Select brand", brand_names, label_visibility="collapsed")
 
     if selected:
-        row  = filtered_df[filtered_df["brand_name"] == selected].iloc[0]
+        row  = next(b for b in brands if b["brand_name"] == selected)
         tier = score_tier(row["icp_score"])
 
         # ── Header ────────────────────────────────────────────────────────────
@@ -573,7 +579,7 @@ with tab_detail:
                                 f'style="background:#f1f5f9;padding:2px 8px;border-radius:99px;margin:2px 4px 2px 0;display:inline-block;font-size:11px;color:#374151;text-decoration:none">{c}</a>'
                                 for c in creators
                             )
-                            + f'{"&nbsp;<span style=\\'font-size:11px;color:#94a3b8\\'>+ more</span>" if row["unique_creators"] > len(creators) else ""}'
+                            + (f'&nbsp;<span style="font-size:11px;color:#94a3b8">+ more</span>' if row["unique_creators"] > len(creators) else "")
                             + f'</div></div>',
                             unsafe_allow_html=True,
                         )
@@ -613,7 +619,6 @@ with tab_detail:
                     # Purchase-intent comments
                     pcomments = evidence.get("sample_purchase_comments") or []
                     top_video_url = (evidence.get("top_video") or {}).get("url", "")
-                    n_comments = m_raw.get("total_comments", 0)
                     if pcomments:
                         label = (
                             f'Purchase-intent comments (<a href="{top_video_url}" target="_blank" '
@@ -655,7 +660,7 @@ with tab_detail:
 
         # ── Sales Signal ──────────────────────────────────────────────────────
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        blurb_html = _md(generate_why_zelf_blurb(selected, row.to_dict()))
+        blurb_html = _md(generate_why_zelf_blurb(selected, row))
         st.markdown(
             f'<div style="background:#f8fafc;border-radius:10px;padding:20px 24px;'
             f'border:1px solid #f1f5f9;font-size:14px">'
@@ -669,28 +674,25 @@ with tab_detail:
 
 # ── Tab 4: Raw Data ───────────────────────────────────────────────────────────
 with tab_raw:
-    # Build raw metrics dataframe from brand_platforms
-    raw_rows = []
-    for _, r in filtered_df.iterrows():
-        m = brand_platforms.get(r["brand_name"], {}).get("youtube", {})
-        raw_rows.append({
+    raw_rows = [
+        {
             "Brand":           r["brand_name"],
             "Category":        r["category"],
-            "Videos":          int(m.get("videos_last_90d", 0)),
-            "Total Views":     int(m.get("total_views", 0)),
-            "Avg Views":       int(m.get("avg_views", 0)),
-            "Total Likes":     int(m.get("total_likes", 0)),
-            "Total Comments":  int(m.get("total_comments", 0)),
-            "Eng. Rate":       float(m.get("engagement_rate", 0.0)),
-            "Creators":        int(m.get("unique_creators", 0)),
-            "Breakout Ratio":  float(m.get("breakout_ratio", 0.0)),
-            "Review Intent %": round(float(m.get("review_intent_ratio", 0.0)) * 100, 1),
-            "Purchase Score":  float(m.get("purchase_intent_score", 0.0)),
-        })
-
+            "Videos":          int(brand_platforms.get(r["brand_name"], {}).get("youtube", {}).get("videos_last_90d", 0)),
+            "Total Views":     int(r["total_views"]),
+            "Avg Views":       int(brand_platforms.get(r["brand_name"], {}).get("youtube", {}).get("avg_views", 0)),
+            "Total Likes":     int(r["total_likes"]),
+            "Total Comments":  int(r["total_comments"]),
+            "Eng. Rate":       float(r["avg_engagement_rate"]),
+            "Creators":        int(r["unique_creators"]),
+            "Breakout Ratio":  float(r["breakout_ratio"]),
+            "Review Intent %": round(float(r["review_intent_ratio"]) * 100, 1),
+            "Purchase Score":  float(r["purchase_intent_score"]),
+        }
+        for r in brands
+    ]
     raw_df = pd.DataFrame(raw_rows)
 
-    # ── Table ─────────────────────────────────────────────────────────────────
     st.dataframe(
         raw_df,
         column_config={
@@ -732,14 +734,13 @@ with tab_raw:
 
     st.markdown("<div style='height:24px'></div>", unsafe_allow_html=True)
 
-    # ── Charts ────────────────────────────────────────────────────────────────
     ca, cb = st.columns(2)
 
     with ca:
         st.markdown("**Views vs. Creator Count**")
         st.caption("Raw reach signal — how much view volume per creator")
         fig = px.scatter(
-            raw_df,
+            raw_rows,
             x="Creators",
             y="Total Views",
             color="Category",
@@ -763,7 +764,7 @@ with tab_raw:
         st.markdown("**Review Intent vs. Purchase Score**")
         st.caption("Intent signal — what % of titles are review-driven vs. comment buy-language")
         fig = px.scatter(
-            raw_df,
+            raw_rows,
             x="Review Intent %",
             y="Purchase Score",
             color="Category",
@@ -781,19 +782,18 @@ with tab_raw:
         )
         st.plotly_chart(fig, width="stretch")
 
-    # Breakout ratio bar
     st.markdown("**Breakout Ratio by Brand**")
     st.caption("Top video ÷ avg views — measures viral potential within a brand's creator content")
-    br_sorted = raw_df.sort_values("Breakout Ratio", ascending=True)
+    br_sorted = sorted(raw_rows, key=lambda r: r["Breakout Ratio"])
     fig = go.Figure(go.Bar(
-        x=br_sorted["Breakout Ratio"],
-        y=br_sorted["Brand"],
+        x=[r["Breakout Ratio"] for r in br_sorted],
+        y=[r["Brand"] for r in br_sorted],
         orientation="h",
         marker_color=[
-            "#6366f1" if v >= 10 else "#a5b4fc" if v >= 4 else "#e2e8f0"
-            for v in br_sorted["Breakout Ratio"]
+            "#6366f1" if r["Breakout Ratio"] >= 10 else "#a5b4fc" if r["Breakout Ratio"] >= 4 else "#e2e8f0"
+            for r in br_sorted
         ],
-        text=br_sorted["Breakout Ratio"].apply(lambda v: f"{v:.1f}×"),
+        text=[f"{r['Breakout Ratio']:.1f}×" for r in br_sorted],
         textposition="outside",
         textfont=dict(size=10, color="#64748b"),
         hovertemplate="%{y}: %{x:.1f}×<extra></extra>",
@@ -807,7 +807,6 @@ with tab_raw:
     )
     st.plotly_chart(fig, width="stretch")
 
-    # Download
     st.download_button(
         "Export Raw Data CSV",
         raw_df.to_csv(index=False),
@@ -840,10 +839,9 @@ with tab_about:
 <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
 
 <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:12px">How we collect data</h2>
-<p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The query is literally <code style="background:#f8fafc;padding:1px 6px;border-radius:4px;font-size:13px">ytsearch50:[brand name]</code>.</p>
-<p>YouTube returns up to 50 results sorted by <strong>upload date, most recent first</strong>. We then filter those for: videos older than 90 days, and videos from the brand's own channel. What remains is our dataset for that brand.</p>
-<p>Sorting by recency means we are measuring what is happening now, which is the right framing for a sales tool — you want to call a brand when creators are actively posting about them, not when an old video happened to go viral. The trade-off is that a high-performing video from 60 days ago ranks below a low-performing video from yesterday. We accept that trade-off.</p>
-<p>For a popular brand like Erewhon or L'Oreal Paris, 50 recent results is still a narrow slice — there are almost certainly more creator videos in any 90-day window than we are seeing. For smaller brands it may be close to the full picture.</p>
+<p>For each brand we run a YouTube search using <a href="https://github.com/yt-dlp/yt-dlp" style="color:#6366f1">yt-dlp</a> — no API key, no YouTube Data API, no quota limits. The search is sorted by upload date (most recent first).</p>
+<p>YouTube returns up to 50 results. We then filter those for: videos older than 90 days, and videos from the brand's own channel. What remains is our dataset for that brand.</p>
+<p>Sorting by recency means we are measuring what is happening now, which is the right framing for a sales tool — you want to call a brand when creators are actively posting about them, not when an old video happened to go viral.</p>
 <p>For the <strong>top 5 videos by view count</strong> in that set, we make a second request to get like and comment counts. Everything else is derived from the flat search alone.</p>
 <p>That is the entirety of our data collection.</p>
 
@@ -861,7 +859,7 @@ The sum of view counts across all collected videos. For large brands this dramat
 The percentage of video titles containing at least one of these words: <em>review, haul, routine, unboxing, unbox, try, tried, testing, tested, honest, worth it, first impression, reaction, comparison, vs</em>. This tells you whether creators are actively evaluating the brand versus casually mentioning it. It is a keyword match on the title — nothing more.</p>
 
 <p><strong>Engagement rate</strong><br>
-(likes + comments) ÷ views, computed only on the top 5 videos by view count. This is not the engagement rate across all creator content — it is specifically the top 5. High-view videos tend to have lower engagement rates because they reach beyond a creator's core audience, so this number skews low.</p>
+(likes + comments) ÷ views, computed only on the top 5 videos by view count. This is not the engagement rate across all creator content — it is specifically the top 5.</p>
 
 <hr style="border:none;border-top:1px solid #f1f5f9;margin:28px 0">
 
