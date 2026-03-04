@@ -47,8 +47,6 @@ If you skip collection, the committed `zelf_cache.db` has pre-collected data rea
 
 **Intent gate:** if a brand has zero review-keyword titles (creators mention it incidentally, but no one is actively reviewing it), the final score is capped at 60. High reach with no creator intentionality is not a Zelf lead.
 
-**Breakout bonus:** up to 5 extra points if one video significantly outperforms the average (log-scaled, capped). Signals viral potential in the creator ecosystem.
-
 ### Category fit multipliers
 
 | Category | Multiplier | Points |
@@ -70,9 +68,9 @@ For each brand, three steps:
 
 **Step 2 — Full fetch** (up to 5 requests): fetches the top 5 videos by views individually to get likes, comments, and description.
 
-**Step 3 — Comment fetch** (1 request): pulls 50 comments from the top evidence video to check for purchase-intent language ("bought", "ordering this", "use code"…).
+**Step 3 — Comment fetch** (1 request): pulls 50 comments from the top video by views to check for purchase-intent language ("bought", "ordering this", "use code"…).
 
-**False positive filtering:** the "evidence video" shown in the dashboard is LLM-validated — the model confirms the video is actually about the brand (not a music video or unrelated content that matched the search). Music videos are caught by title fingerprints before the LLM is even called.
+**Note on false positives:** the top video by views is often not actually about the brand — it may be a music video, meme, or unrelated content that matched the search query. The purchase intent score derived from its comments should be treated as a rough directional signal, not a reliable metric.
 
 ---
 
@@ -121,3 +119,4 @@ zelf/
 - **50 videos per brand** — for large brands this is a narrow slice. For smaller brands it's closer to the full picture.
 - **Organic vs. paid** — there's no way to tell from the data whether a video is sponsored or organic.
 - **Scores are relative** — the percentile system means scores shift as the brand cohort changes. A score of 75 means "top quartile in this dataset", not an absolute measure.
+- **Top video false positives** — the purchase intent score is based on comments from the #1 video by views, which is frequently not about the brand at all. Treat it as a rough signal.

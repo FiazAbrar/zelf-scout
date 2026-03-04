@@ -552,7 +552,7 @@ with tab_detail:
                     if tv:
                         st.markdown(
                             f'<div style="margin-bottom:16px">'
-                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Top video</div>'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Top video <span style="font-weight:400;font-size:9px">(by views — may not be about brand)</span></div>'
                             f'<div style="font-size:13px;color:#0f172a;font-weight:500;margin-bottom:2px">'
                             f'<a href="{tv["url"]}" target="_blank" style="color:#6366f1;text-decoration:none">{tv["title"]}</a>'
                             f'</div>'
@@ -617,8 +617,8 @@ with tab_detail:
                     if pcomments:
                         label = (
                             f'Purchase-intent comments (<a href="{top_video_url}" target="_blank" '
-                            f'style="color:#94a3b8;text-decoration:underline">from top video</a>)'
-                            if top_video_url else "Purchase-intent comments (from top video)"
+                            f'style="color:#94a3b8;text-decoration:underline">from top video</a> — may be unreliable)'
+                            if top_video_url else "Purchase-intent comments (from top video — may be unreliable)"
                         )
                         items = "".join(
                             f'<li style="margin-bottom:6px;color:#374151;font-style:italic">"{c}"</li>'
@@ -705,11 +705,6 @@ with tab_raw:
                 help="(likes + comments) ÷ views on the top 5 videos.",
                 format="%.4f",
             ),
-            "Breakout Ratio": st.column_config.NumberColumn(
-                "Breakout Ratio",
-                help="Top video views ÷ avg video views. Higher = one video going viral.",
-                format="%.1f",
-            ),
             "Review Intent %": st.column_config.NumberColumn(
                 "Review Intent %",
                 help="% of video titles containing keywords: review, haul, routine, unboxing, honest, try, tested…",
@@ -717,7 +712,7 @@ with tab_raw:
             ),
             "Purchase Score": st.column_config.NumberColumn(
                 "Purchase Score",
-                help="Fraction of comments on the top video containing purchase language: bought, ordered, need this, use code…",
+                help="Fraction of comments containing purchase language (bought, ordered, need this, use code…). Sampled from #1 video by views — may be a false positive, treat as rough signal.",
                 format="%.3f",
             ),
         },
@@ -740,7 +735,7 @@ with tab_raw:
             color="Category",
             hover_name="Brand",
             hover_data={"Total Views": True, "Creators": True,
-                        "Breakout Ratio": ":.1f", "Category": False},
+                        "Category": False},
             color_discrete_sequence=px.colors.qualitative.Pastel,
             log_y=True,
         )
@@ -775,31 +770,6 @@ with tab_raw:
             height=340,
         )
         st.plotly_chart(fig, width="stretch")
-
-    st.markdown("**Breakout Ratio by Brand**")
-    st.caption("Top video ÷ avg views — measures viral potential within a brand's creator content")
-    br_sorted = sorted(raw_rows, key=lambda r: r["Breakout Ratio"])
-    fig = go.Figure(go.Bar(
-        x=[r["Breakout Ratio"] for r in br_sorted],
-        y=[r["Brand"] for r in br_sorted],
-        orientation="h",
-        marker_color=[
-            "#6366f1" if r["Breakout Ratio"] >= 10 else "#a5b4fc" if r["Breakout Ratio"] >= 4 else "#e2e8f0"
-            for r in br_sorted
-        ],
-        text=[f"{r['Breakout Ratio']:.1f}×" for r in br_sorted],
-        textposition="outside",
-        textfont=dict(size=10, color="#64748b"),
-        hovertemplate="%{y}: %{x:.1f}×<extra></extra>",
-    ))
-    fig.update_layout(
-        **{k: v for k, v in PLOTLY_LAYOUT.items() if k not in ("xaxis", "yaxis", "margin")},
-        xaxis=dict(showgrid=False, showticklabels=False, zeroline=False),
-        yaxis=dict(showgrid=False, zeroline=False, tickfont=dict(size=11)),
-        height=max(320, len(br_sorted) * 22),
-        margin=dict(t=16, b=16, l=120, r=60),
-    )
-    st.plotly_chart(fig, width="stretch")
 
     st.download_button(
         "Export Raw Data CSV",

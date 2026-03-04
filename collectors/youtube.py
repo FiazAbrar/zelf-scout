@@ -70,6 +70,11 @@ class YouTubeCollector:
       - unique_creators                      → ecosystem breadth
       - review_intent_ratio                  → creator intentionality (title analysis)
       - purchase_intent_score                → audience purchase signals (comment analysis)
+
+    Known limitation:
+      The top-1 video (by views) used for purchase intent analysis is often a false
+      positive — it may not actually be about the brand. The purchase_intent_score
+      should be treated as a rough directional signal, not a reliable metric.
     """
 
     def collect(self, brand_name: str, channel_id: str = "",

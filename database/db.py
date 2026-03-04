@@ -57,7 +57,6 @@ def init_db(db_path: Path = None):
             total_likes INTEGER NOT NULL,
             total_comments INTEGER NOT NULL,
             unique_creators INTEGER NOT NULL DEFAULT 0,
-            breakout_ratio REAL NOT NULL DEFAULT 0.0,
             review_intent_ratio REAL NOT NULL DEFAULT 0.0,
             purchase_intent_score REAL NOT NULL DEFAULT 0.0,
             scored_at TEXT NOT NULL
