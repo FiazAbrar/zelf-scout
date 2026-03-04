@@ -138,10 +138,10 @@ def upsert_scores(scores: list[dict], db_path: Path = None):
                 content_intent_score, category_fit_score,
                 platforms_active, total_videos, total_views,
                 total_likes, total_comments,
-                unique_creators, breakout_ratio,
+                unique_creators,
                 review_intent_ratio, purchase_intent_score,
                 scored_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(brand_name) DO UPDATE SET
                 category = excluded.category,
                 icp_score = excluded.icp_score,
@@ -155,7 +155,6 @@ def upsert_scores(scores: list[dict], db_path: Path = None):
                 total_likes = excluded.total_likes,
                 total_comments = excluded.total_comments,
                 unique_creators = excluded.unique_creators,
-                breakout_ratio = excluded.breakout_ratio,
                 review_intent_ratio = excluded.review_intent_ratio,
                 purchase_intent_score = excluded.purchase_intent_score,
                 scored_at = excluded.scored_at
@@ -165,7 +164,7 @@ def upsert_scores(scores: list[dict], db_path: Path = None):
             s["content_intent_score"], s["category_fit_score"],
             s["platforms_active"], s["total_videos"], s["total_views"],
             s["total_likes"], s["total_comments"],
-            s["unique_creators"], s["breakout_ratio"],
+            s["unique_creators"],
             s["review_intent_ratio"], s["purchase_intent_score"],
             now,
         ))
