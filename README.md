@@ -39,7 +39,7 @@ If you skip collection, the committed `zelf_cache.db` has pre-collected data rea
 | Dimension | Weight | Signal | Method |
 |---|---|---|---|
 | **Creator Reach** | 30 pts | Total views on creator content (90 days) | Percentile vs. cohort |
-| **Creator Ecosystem** | 25 pts | Unique creator count + viral breakout bonus | Percentile + log bonus |
+| **Creator Ecosystem** | 25 pts | Unique creator count | Percentile vs. cohort |
 | **Content Intent** | 25 pts | % of video titles with review/haul keywords | Percentile vs. cohort |
 | **Category Fit** | 20 pts | Zelf ICP alignment by category | Fixed multiplier |
 

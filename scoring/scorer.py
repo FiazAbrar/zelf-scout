@@ -1,10 +1,7 @@
-from math import log2
-
 from config import (
     SCORING_WEIGHTS,
     CATEGORY_FIT,
     INTENT_ABSENT_SCORE_CAP,
-    BREAKOUT_BONUS_MAX_PTS,
 )
 
 
@@ -13,7 +10,7 @@ class ICPScorer:
 
     Dimensions:
       creator_reach     (30 pts) — total views on creator content; percentile-based
-      creator_ecosystem (25 pts) — unique creator count (percentile) + breakout bonus (absolute)
+      creator_ecosystem (25 pts) — unique creator count (percentile)
       content_intent    (25 pts) — review keyword ratio; percentile-based
       category_fit      (20 pts) — static Zelf ICP alignment; absolute lookup
 
@@ -49,12 +46,8 @@ class ICPScorer:
             r["creator_reach_score"] = round(
                 self._pct_score(total_views_vals, r["total_views"], w["creator_reach"]), 1
             )
-            ecosystem_base = self._pct_score(
-                unique_creator_vals, r["unique_creators"],
-                w["creator_ecosystem"] - BREAKOUT_BONUS_MAX_PTS,
-            )
             r["creator_ecosystem_score"] = round(
-                min(ecosystem_base + self._breakout_bonus(r["breakout_ratio"]), w["creator_ecosystem"]), 1
+                self._pct_score(unique_creator_vals, r["unique_creators"], w["creator_ecosystem"]), 1
             )
             r["content_intent_score"] = round(
                 self._pct_score(review_intent_vals, r["review_intent_ratio"], w["content_intent"]), 1
@@ -89,7 +82,7 @@ class ICPScorer:
         total_views = total_likes = total_comments = total_videos = active_platforms = 0
         engagement_rates = []
         unique_creators = 0
-        breakout_ratio = review_intent_ratio = purchase_intent_score = 0.0
+        review_intent_ratio = purchase_intent_score = 0.0
 
         for metrics in platforms.values():
             if metrics.get("data_source") == "unavailable":
@@ -103,7 +96,6 @@ class ICPScorer:
             if er > 0:
                 engagement_rates.append(er)
             unique_creators       = max(unique_creators,       metrics.get("unique_creators", 0))
-            breakout_ratio        = max(breakout_ratio,        metrics.get("breakout_ratio", 0.0))
             review_intent_ratio   = max(review_intent_ratio,   metrics.get("review_intent_ratio", 0.0))
             purchase_intent_score = max(purchase_intent_score, metrics.get("purchase_intent_score", 0.0))
 
@@ -117,7 +109,6 @@ class ICPScorer:
             "total_videos":          total_videos,
             "avg_engagement_rate":   avg_er,
             "unique_creators":       unique_creators,
-            "breakout_ratio":        breakout_ratio,
             "review_intent_ratio":   review_intent_ratio,
             "purchase_intent_score": purchase_intent_score,
         }
@@ -135,13 +126,3 @@ class ICPScorer:
         equal = sum(1 for v in values if v == x)
         return (below + 0.5 * equal) / n * max_pts
 
-    def _breakout_bonus(self, breakout_ratio: float) -> float:
-        """Log-scaled bonus points for viral potential (0 to BREAKOUT_BONUS_MAX_PTS).
-
-        breakout_ratio of 1 (flat, no outlier) → 0 pts.
-        breakout_ratio of 8 (one video 8× average) → ~3 pts.
-        breakout_ratio of 64+ → capped at BREAKOUT_BONUS_MAX_PTS.
-        """
-        if breakout_ratio <= 1:
-            return 0.0
-        return min(log2(breakout_ratio) / 3 * BREAKOUT_BONUS_MAX_PTS, BREAKOUT_BONUS_MAX_PTS)

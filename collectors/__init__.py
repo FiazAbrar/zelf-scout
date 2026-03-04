@@ -27,7 +27,6 @@ class PlatformMetrics:
     # --- Creator ecosystem signals (YouTube-specific, derived during collection) ---
     unique_creators: int = 0            # distinct channel names in search results
     max_views: int = 0                  # highest view count among all candidate videos
-    breakout_ratio: float = 0.0         # max_views / avg_views — viral potential
     review_intent_ratio: float = 0.0   # fraction of titles with review/haul/routine keywords
     purchase_intent_score: float = 0.0 # fraction of top-video comments with purchase keywords
 
@@ -56,7 +55,6 @@ class PlatformMetrics:
             "engagement_rate": self.engagement_rate,
             "unique_creators": self.unique_creators,
             "max_views": self.max_views,
-            "breakout_ratio": self.breakout_ratio,
             "review_intent_ratio": self.review_intent_ratio,
             "purchase_intent_score": self.purchase_intent_score,
             "data_source": self.data_source,

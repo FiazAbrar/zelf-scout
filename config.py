@@ -14,7 +14,7 @@ BRANDS_CSV  = _discovered if _discovered.exists() else _seed
 # --- Scoring Weights (max points per dimension, must sum to 100) ---
 #
 # creator_reach    : total views on creator content  → how much reach does this ecosystem generate?
-# creator_ecosystem: unique creator count + breakout → how broad and viral-capable is it?
+# creator_ecosystem: unique creator count             → how broad is the creator base?
 # content_intent   : review keywords + purchase signals → do creators/audiences show real intent?
 # category_fit     : static Zelf ICP alignment        → is this a brand Zelf is built for?
 SCORING_WEIGHTS = {
@@ -28,10 +28,6 @@ SCORING_WEIGHTS = {
 # Prevents brands with huge view counts but zero creator intentionality from
 # appearing as hot leads.
 INTENT_ABSENT_SCORE_CAP = 60
-
-# Breakout ratio bonus: up to this many extra points for viral potential.
-# Log-scaled so one outlier video doesn't dominate.
-BREAKOUT_BONUS_MAX_PTS = 5
 
 # --- Category Fit Multipliers (Zelf ICP alignment by category) ---
 CATEGORY_FIT = {

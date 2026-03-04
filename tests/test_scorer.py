@@ -15,7 +15,7 @@ def make_brand(name, category, platforms):
 def make_platform_metrics(
     platform, shorts=10, views=100000, likes=5000, comments=500,
     followers=50000, source="sample",
-    unique_creators=8, breakout_ratio=3.0,
+    unique_creators=8,
     review_intent_ratio=0.4, purchase_intent_score=0.2,
 ):
     return {
@@ -32,10 +32,13 @@ def make_platform_metrics(
         "avg_comments": comments // max(shorts, 1),
         "engagement_rate": (likes + comments) / max(views, 1),
         "unique_creators": unique_creators,
-        "breakout_ratio": breakout_ratio,
         "review_intent_ratio": review_intent_ratio,
         "purchase_intent_score": purchase_intent_score,
     }
+
+
+def _find(rows, name):
+    return next(r for r in rows if r["brand_name"] == name)
 
 
 class TestICPScorer:
@@ -55,10 +58,10 @@ class TestICPScorer:
             }),
         ]
 
-        df = self.scorer.score_brands(brands)
+        rows = self.scorer.score_brands(brands)
 
-        assert len(df) == 3
-        for _, row in df.iterrows():
+        assert len(rows) == 3
+        for row in rows:
             assert 0 <= row["icp_score"] <= 100
             assert 0 <= row["creator_reach_score"] <= 30
             assert 0 <= row["creator_ecosystem_score"] <= 25
@@ -81,10 +84,8 @@ class TestICPScorer:
             }),
         ]
 
-        df = self.scorer.score_brands(brands)
-        active_score = df[df["brand_name"] == "Active"]["icp_score"].iloc[0]
-        inactive_score = df[df["brand_name"] == "Inactive"]["icp_score"].iloc[0]
-        assert active_score > inactive_score
+        rows = self.scorer.score_brands(brands)
+        assert _find(rows, "Active")["icp_score"] > _find(rows, "Inactive")["icp_score"]
 
     def test_category_fit_scoring(self):
         brands = [
@@ -96,16 +97,16 @@ class TestICPScorer:
             }),
         ]
 
-        df = self.scorer.score_brands(brands)
-        beauty_fit = df[df["brand_name"] == "BeautyBrand"]["category_fit_score"].iloc[0]
-        other_fit = df[df["brand_name"] == "OtherBrand"]["category_fit_score"].iloc[0]
+        rows = self.scorer.score_brands(brands)
+        beauty_fit = _find(rows, "BeautyBrand")["category_fit_score"]
+        other_fit = _find(rows, "OtherBrand")["category_fit_score"]
         assert beauty_fit > other_fit
         assert beauty_fit == 20.0   # 1.0 × 20
         assert other_fit == 6.0    # 0.3 × 20
 
     def test_empty_input(self):
-        df = self.scorer.score_brands([])
-        assert df.empty
+        rows = self.scorer.score_brands([])
+        assert rows == []
 
     def test_unavailable_platforms_ignored(self):
         brands = [
@@ -115,8 +116,8 @@ class TestICPScorer:
             }),
         ]
 
-        df = self.scorer.score_brands(brands)
-        assert df.iloc[0]["platforms_active"] == 1
+        rows = self.scorer.score_brands(brands)
+        assert rows[0]["platforms_active"] == 1
 
     def test_rank_assignment(self):
         brands = [
@@ -129,9 +130,9 @@ class TestICPScorer:
             for i in range(1, 6)
         ]
 
-        df = self.scorer.score_brands(brands)
-        assert list(df["rank"]) == [1, 2, 3, 4, 5]
-        assert df.iloc[0]["icp_score"] >= df.iloc[1]["icp_score"]
+        rows = self.scorer.score_brands(brands)
+        assert [r["rank"] for r in rows] == [1, 2, 3, 4, 5]
+        assert rows[0]["icp_score"] >= rows[1]["icp_score"]
 
     def test_intent_gate_caps_score(self):
         """Brands with zero review and purchase intent should not exceed INTENT_ABSENT_SCORE_CAP."""
@@ -143,8 +144,8 @@ class TestICPScorer:
                 ),
             }),
         ]
-        df = self.scorer.score_brands(brands)
-        assert df.iloc[0]["icp_score"] <= INTENT_ABSENT_SCORE_CAP
+        rows = self.scorer.score_brands(brands)
+        assert rows[0]["icp_score"] <= INTENT_ABSENT_SCORE_CAP
 
     def test_high_intent_can_exceed_cap(self):
         """Brands with real intent signals should be able to score above the cap."""
@@ -162,9 +163,8 @@ class TestICPScorer:
                 ),
             }),
         ]
-        df = self.scorer.score_brands(brands)
-        top_score = df[df["brand_name"] == "WithIntent"]["icp_score"].iloc[0]
-        assert top_score > INTENT_ABSENT_SCORE_CAP
+        rows = self.scorer.score_brands(brands)
+        assert _find(rows, "WithIntent")["icp_score"] > INTENT_ABSENT_SCORE_CAP
 
     def test_creator_diversity_matters(self):
         """Same views but more unique creators should score higher on ecosystem."""
@@ -182,7 +182,5 @@ class TestICPScorer:
                 ),
             }),
         ]
-        df = self.scorer.score_brands(brands)
-        organic_eco = df[df["brand_name"] == "Organic"]["creator_ecosystem_score"].iloc[0]
-        concentrated_eco = df[df["brand_name"] == "Concentrated"]["creator_ecosystem_score"].iloc[0]
-        assert organic_eco > concentrated_eco
+        rows = self.scorer.score_brands(brands)
+        assert _find(rows, "Organic")["creator_ecosystem_score"] > _find(rows, "Concentrated")["creator_ecosystem_score"]

@@ -67,7 +67,7 @@ class YouTubeCollector:
 
     Signals produced:
       - total_views, engagement_rate         → reach and audience quality
-      - unique_creators, breakout_ratio      → ecosystem breadth and viral potential
+      - unique_creators                      → ecosystem breadth
       - review_intent_ratio                  → creator intentionality (title analysis)
       - purchase_intent_score                → audience purchase signals (comment analysis)
     """
@@ -161,7 +161,6 @@ class YouTubeCollector:
         count = len(candidates)
         avg_views = total_views // count if count else 0
         max_views = max(view_counts, default=0)
-        breakout_ratio = round(max_views / avg_views, 2) if avg_views > 0 else 0.0
         unique_creators = len(channels_seen)
 
         titles = [v["title"] for v in candidates]
@@ -264,7 +263,6 @@ class YouTubeCollector:
             engagement_rate=round(engagement_rate, 4),
             unique_creators=unique_creators,
             max_views=max_views,
-            breakout_ratio=breakout_ratio,
             review_intent_ratio=review_intent_ratio,
             purchase_intent_score=purchase_intent_score,
             evidence={
@@ -295,7 +293,6 @@ class YouTubeCollector:
             engagement_rate=m.get("engagement_rate", 0.0),
             unique_creators=m.get("unique_creators", 0),
             max_views=m.get("max_views", 0),
-            breakout_ratio=m.get("breakout_ratio", 0.0),
             review_intent_ratio=m.get("review_intent_ratio", 0.0),
             purchase_intent_score=m.get("purchase_intent_score", 0.0),
         )

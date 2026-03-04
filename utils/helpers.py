@@ -75,7 +75,6 @@ def generate_why_zelf_blurb(brand_name: str, row: dict) -> str:
     total_views        = row.get("total_views", 0)
     total_videos       = row.get("total_videos", 0)
     unique_creators    = int(row.get("unique_creators", 0))
-    breakout_ratio     = row.get("breakout_ratio", 0.0)
     review_intent      = row.get("review_intent_ratio", 0.0)
     purchase_intent    = row.get("purchase_intent_score", 0.0)
     reach_score        = row.get("creator_reach_score", 0)
@@ -124,18 +123,6 @@ def generate_why_zelf_blurb(brand_name: str, row: dict) -> str:
         lines.append(
             f"Creators mention it but audiences aren't reacting with purchase intent. "
             f"Could be a brand awareness play that hasn't converted — Zelf can help them figure out why."
-        )
-
-    # ── Breakout / viral signal ────────────────────────────────────────────────
-    if breakout_ratio > 8:
-        lines.append(
-            f"One video is pulling **{breakout_ratio:.0f}× the average views** — "
-            f"a breakout that their team probably doesn't know is happening."
-        )
-    elif breakout_ratio > 4:
-        lines.append(
-            f"Viral potential is real: top video is {breakout_ratio:.1f}× the average, "
-            f"suggesting the category is receptive to a hit piece."
         )
 
     # ── Category + recommendation ─────────────────────────────────────────────

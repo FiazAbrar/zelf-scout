@@ -128,7 +128,6 @@ def score_all_brands() -> tuple[list[dict], int]:
                 "total_videos": r["total_videos"], "total_views": r["total_views"],
                 "total_likes": r["total_likes"], "total_comments": r["total_comments"],
                 "unique_creators": int(r["unique_creators"]),
-                "breakout_ratio": r["breakout_ratio"],
                 "review_intent_ratio": r["review_intent_ratio"],
                 "purchase_intent_score": r["purchase_intent_score"],
             }
@@ -191,7 +190,7 @@ with st.expander("How scores are computed"):
 | | Weight | Method | Signal |
 |---|---|---|---|
 | **Creator Reach** | 30 pts | Percentile vs. cohort | Total views on creator content · 90 days |
-| **Ecosystem** | 25 pts | Percentile + log bonus | Unique creators + breakout ratio (top video ÷ avg) |
+| **Ecosystem** | 25 pts | Percentile vs. cohort | Unique creators posting about the brand |
 | **Content Intent** | 25 pts | Percentile vs. cohort | % of video titles containing review/haul keywords |
 | **Category Fit** | 20 pts | Fixed multiplier | Beauty / Food / Personal Care → 20 · Beverage → 16 · Household → 12 · Pet → 8 |
 
@@ -273,8 +272,7 @@ with tab_table:
             "Ecosystem": st.column_config.NumberColumn(
                 "Ecosystem",
                 help="Creator Ecosystem · max 25 pts\n\nUnique creators posting about the brand "
-                     "(percentile) plus a log-scaled bonus for viral breakout potential "
-                     "(top video ÷ average views).",
+                     "(percentile vs. cohort).",
                 format="%.1f",
             ),
             "Intent": st.column_config.NumberColumn(
@@ -496,7 +494,7 @@ with tab_detail:
                 (
                     "Ecosystem",
                     "creator_ecosystem_score", "creator_ecosystem",
-                    f"{int(row['unique_creators'])} creators · {row['breakout_ratio']:.1f}× breakout",
+                    f"{int(row['unique_creators'])} creators",
                 ),
                 (
                     "Content Intent",
@@ -549,19 +547,16 @@ with tab_detail:
                 ev_cols = st.columns(2)
 
                 with ev_cols[0]:
-                    # Breakout video
+                    # Top video
                     tv = evidence.get("top_video")
                     if tv:
                         st.markdown(
                             f'<div style="margin-bottom:16px">'
-                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Breakout video</div>'
+                            f'<div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px">Top video</div>'
                             f'<div style="font-size:13px;color:#0f172a;font-weight:500;margin-bottom:2px">'
                             f'<a href="{tv["url"]}" target="_blank" style="color:#6366f1;text-decoration:none">{tv["title"]}</a>'
                             f'</div>'
                             f'<div style="font-size:12px;color:#64748b">{tv["channel"]} · {format_number(tv["views"])} views</div>'
-                            f'<div style="font-size:11px;color:#94a3b8;margin-top:2px">'
-                            f'{format_number(tv["views"])} ÷ {format_number(m_raw.get("avg_views", 0))} avg = {row["breakout_ratio"]:.1f}× ratio'
-                            f'</div>'
                             f'</div>',
                             unsafe_allow_html=True,
                         )
@@ -655,8 +650,8 @@ with tab_detail:
                    help="Sum of views across all creator videos. Drives the Creator Reach score.")
         sc3.metric("Unique Creators",  int(row["unique_creators"]),
                    help="Distinct creator channels that posted about this brand. Brand's own channel excluded.")
-        sc4.metric("Breakout Ratio",   f"{row['breakout_ratio']:.1f}×",
-                   help="Top video views ÷ average video views. A high ratio means one video is going viral.")
+        sc4.metric("Avg Views",        format_number(row.get("avg_views", row["total_views"] // max(row["total_videos"], 1))),
+                   help="Average views per creator video.")
 
         # ── Sales Signal ──────────────────────────────────────────────────────
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
@@ -685,7 +680,6 @@ with tab_raw:
             "Total Comments":  int(r["total_comments"]),
             "Eng. Rate":       float(r["avg_engagement_rate"]),
             "Creators":        int(r["unique_creators"]),
-            "Breakout Ratio":  float(r["breakout_ratio"]),
             "Review Intent %": round(float(r["review_intent_ratio"]) * 100, 1),
             "Purchase Score":  float(r["purchase_intent_score"]),
         }
@@ -703,7 +697,7 @@ with tab_raw:
             ),
             "Avg Views": st.column_config.NumberColumn(
                 "Avg Views",
-                help="Mean views per video. Used as the denominator in breakout ratio.",
+                help="Mean views per video.",
                 format="%d",
             ),
             "Eng. Rate": st.column_config.NumberColumn(
